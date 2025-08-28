@@ -4,7 +4,7 @@
 vllm serve MODEL_NAME --tensor-parallel-size 2
 ```
 
-Note: the Model name should be identical to the name used in the chatbot.py file
+Note: the Model name should be identical to the name used in the ChatOpenAI function
 
 ```
 llm = ChatOpenAI(
