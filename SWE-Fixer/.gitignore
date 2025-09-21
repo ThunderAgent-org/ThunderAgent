@@ -1,0 +1,12 @@
+data_construction
+results
+playground
+model
+eval_data
+code_structure_construction
+cot_generate
+code_structure
+BM25_index_lite
+data
+kill_process.sh
+*.tar.gz
