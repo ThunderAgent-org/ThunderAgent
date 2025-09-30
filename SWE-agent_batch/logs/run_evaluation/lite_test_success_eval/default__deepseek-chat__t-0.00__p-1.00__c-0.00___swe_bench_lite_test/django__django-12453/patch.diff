@@ -1,0 +1,117 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..77fe9222fe
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,110 @@
++#!/usr/bin/env python
++"""
++Script to reproduce the serialized_rollback issue with foreign key constraints.
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models, transaction
++from django.db.backends.base.creation import BaseDatabaseCreation
++from django.db import connection
++
++# Create test models
++class Author(models.Model):
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'test_app'
++
++class Book(models.Model):
++    title = models.CharField(max_length=100)
++    author = models.ForeignKey(Author, on_delete=models.CASCADE)
++    
++    class Meta:
++        app_label = 'test_app'
++
++# Create the tables
++from django.core.management.color import no_style
++from django.db import connections
++
++def create_tables():
++    """Create the test tables"""
++    # Create the tables using the same method Django uses for tests
++    from django.core.management.sql import sql_flush
++    from django.db import connection
++    
++    # Create the tables
++    with connection.schema_editor() as editor:
++        editor.create_model(Author)
++        editor.create_model(Book)
++
++def test_serialization_deserialization():
++    """Test the serialization and deserialization process"""
++    # Create test data
++    author = Author.objects.create(name="Test Author")
++    book = Book.objects.create(title="Test Book", author=author)
++    
++    print("Created test data:")
++    print(f"  Author: {author.name} (id: {author.id})")
++    print(f"  Book: {book.title} (author_id: {book.author_id})")
++    
++    # Serialize the database
++    creation = BaseDatabaseCreation(connection)
++    serialized_data = creation.serialize_db_to_string()
++    print(f"\nSerialized data length: {len(serialized_data)} bytes")
++    
++    # Clear the database
++    Author.objects.all().delete()
++    Book.objects.all().delete()
++    print("\nCleared database")
++    
++    # Try to deserialize WITHOUT transaction (current behavior)
++    print("\nTesting deserialization WITHOUT transaction (current behavior):")
++    try:
++        creation.deserialize_db_from_string(serialized_data)
++        print("  SUCCESS: Deserialization completed without errors")
++    except Exception as e:
++        print(f"  ERROR: {e}")
++    
++    # Clear again
++    Author.objects.all().delete()
++    Book.objects.all().delete()
++    print("\nCleared database again")
++    
++    # Try to deserialize WITH transaction (proposed fix)
++    print("\nTesting deserialization WITH transaction (proposed fix):")
++    try:
++        with transaction.atomic():
++            creation.deserialize_db_from_string(serialized_data)
++        print("  SUCCESS: Deserialization completed without errors")
++    except Exception as e:
++        print(f"  ERROR: {e}")
++
++if __name__ == "__main__":
++    # Create tables
++    create_tables()
++    
++    # Run the test
++    test_serialization_deserialization()
+\ No newline at end of file

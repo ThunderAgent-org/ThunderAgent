@@ -1,0 +1,342 @@
+diff --git a/django/db/models/deletion.py b/django/db/models/deletion.py
+index 92fe4affb9..9abc9e28a2 100644
+--- a/django/db/models/deletion.py
++++ b/django/db/models/deletion.py
+@@ -272,12 +272,16 @@ class Collector:
+         deleted_counter = Counter()
+ 
+         # Optimize for the case with a single obj and no dependencies
+-        if len(self.data) == 1 and len(instances) == 1:
+-            instance = list(instances)[0]
+-            if self.can_fast_delete(instance):
+-                with transaction.mark_for_rollback_on_error():
+-                    count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
+-                return count, {model._meta.label: count}
++        if len(self.data) == 1:
++            model, instances = next(iter(self.data.items()))
++            if len(instances) == 1:
++                instance = list(instances)[0]
++                if self.can_fast_delete(instance):
++                    with transaction.mark_for_rollback_on_error():
++                        count = sql.DeleteQuery(model).delete_batch([instance.pk], self.using)
++                    # Set the PK to None for the deleted instance
++                    setattr(instance, model._meta.pk.attname, None)
++                    return count, {model._meta.label: count}
+ 
+         with transaction.atomic(using=self.using, savepoint=False):
+             # send pre_delete signals
+diff --git a/runtest.py b/runtest.py
+new file mode 100644
+index 0000000000..52dcff6089
+--- /dev/null
++++ b/runtest.py
+@@ -0,0 +1,38 @@
++#!/usr/bin/env python
++"""Run Django tests for the delete functionality"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++            'tests.delete',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.test.utils import get_runner
++
++# Run the specific test
++TestRunner = get_runner(settings)
++test_runner = TestRunner()
++
++# Run all delete tests
++result = test_runner.run_tests(['delete'])
++
++sys.exit(0 if result else 1)
+\ No newline at end of file
+diff --git a/test_can_fast_delete.py b/test_can_fast_delete.py
+new file mode 100644
+index 0000000000..862985836b
+--- /dev/null
++++ b/test_can_fast_delete.py
+@@ -0,0 +1,69 @@
++#!/usr/bin/env python
++"""Test script to understand can_fast_delete behavior"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++from django.db.models.deletion import Collector
++
++# Create a simple test model
++class TestModel(models.Model):
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'test'
++
++# Create database tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(TestModel)
++
++# Test can_fast_delete behavior
++print("Testing can_fast_delete behavior...")
++
++# Create an instance
++instance = TestModel.objects.create(name="Test Instance")
++print(f"Created instance with PK: {instance.pk}")
++
++# Test can_fast_delete with different inputs
++collector = Collector(using='default')
++
++print(f"\ncan_fast_delete(instance): {collector.can_fast_delete(instance)}")
++print(f"can_fast_delete([instance]): {collector.can_fast_delete([instance])}")
++print(f"can_fast_delete(TestModel.objects.filter(pk=instance.pk)): {collector.can_fast_delete(TestModel.objects.filter(pk=instance.pk))}")
++
++# Let's see what happens during collect
++collector.collect([instance])
++print(f"\nAfter collect([instance]):")
++print(f"  Fast deletes: {collector.fast_deletes}")
++print(f"  Data: {collector.data}")
++
++# Test with queryset
++collector2 = Collector(using='default')
++qs = TestModel.objects.filter(pk=instance.pk)
++collector2.collect(qs)
++print(f"\nAfter collect(queryset):")
++print(f"  Fast deletes: {collector2.fast_deletes}")
++print(f"  Data: {collector2.data}")
+\ No newline at end of file
+diff --git a/test_delete_detailed.py b/test_delete_detailed.py
+new file mode 100644
+index 0000000000..fd186a645b
+--- /dev/null
++++ b/test_delete_detailed.py
+@@ -0,0 +1,92 @@
++#!/usr/bin/env python
++"""Detailed test script to understand the delete() PK issue"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Create a simple test model
++class TestModel(models.Model):
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'test'
++
++# Create database tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(TestModel)
++
++# Test the issue
++print("Testing delete() PK behavior in detail...")
++
++# Create an instance
++instance = TestModel.objects.create(name="Test Instance")
++print(f"Created instance with PK: {instance.pk}")
++
++# Let's trace what happens during delete
++from django.db.models.deletion import Collector
++
++# Create a collector and see what happens
++collector = Collector(using='default')
++collector.collect([instance])
++
++print(f"\nCollector data: {collector.data}")
++print(f"Fast deletes: {collector.fast_deletes}")
++print(f"Can fast delete: {collector.can_fast_delete(instance)}")
++
++# Now delete the instance
++instance.delete()
++print(f"\nAfter delete(), PK is: {instance.pk}")
++
++# Let's also test with a model that has dependencies
++class RelatedModel(models.Model):
++    test_model = models.ForeignKey(TestModel, on_delete=models.CASCADE)
++    
++    class Meta:
++        app_label = 'test'
++
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(RelatedModel)
++
++# Create instances with dependencies
++instance2 = TestModel.objects.create(name="Test Instance 2")
++related = RelatedModel.objects.create(test_model=instance2)
++print(f"\nCreated instance with dependencies, PK: {instance2.pk}")
++
++# Check if this will use fast delete
++collector2 = Collector(using='default')
++collector2.collect([instance2])
++
++print(f"Collector data: {collector2.data}")
++print(f"Fast deletes: {collector2.fast_deletes}")
++print(f"Can fast delete: {collector2.can_fast_delete(instance2)}")
++
++# Delete the related instance first to avoid foreign key constraint
++related.delete()
++
++# Now delete the instance
++instance2.delete()
++print(f"After delete() with dependencies, PK is: {instance2.pk}")
+\ No newline at end of file
+diff --git a/test_delete_pk.py b/test_delete_pk.py
+new file mode 100644
+index 0000000000..42997f7793
+--- /dev/null
++++ b/test_delete_pk.py
+@@ -0,0 +1,88 @@
++#!/usr/bin/env python
++"""Test script to reproduce the delete() PK issue"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Create a simple test model
++class TestModel(models.Model):
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'test'
++
++# Create database tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(TestModel)
++
++# Test the issue
++print("Testing delete() PK behavior...")
++
++# Create an instance
++instance = TestModel.objects.create(name="Test Instance")
++print(f"Created instance with PK: {instance.pk}")
++
++# Delete the instance
++instance.delete()
++print(f"After delete(), PK is: {instance.pk}")
++
++# Check if PK is None (should be None according to the PR description)
++if instance.pk is None:
++    print("✓ PASS: PK is correctly set to None after delete()")
++else:
++    print("✗ FAIL: PK is not None after delete()")
++    print(f"  Expected: None")
++    print(f"  Got: {instance.pk}")
++
++# Test with a model that has dependencies (should work correctly)
++class RelatedModel(models.Model):
++    test_model = models.ForeignKey(TestModel, on_delete=models.CASCADE)
++    
++    class Meta:
++        app_label = 'test'
++
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(RelatedModel)
++
++# Create instances with dependencies
++instance2 = TestModel.objects.create(name="Test Instance 2")
++related = RelatedModel.objects.create(test_model=instance2)
++print(f"\nCreated instance with dependencies, PK: {instance2.pk}")
++
++# Delete the related instance first to avoid foreign key constraint
++related.delete()
++
++# Now delete the instance (this should go through the general delete path)
++instance2.delete()
++print(f"After delete() with dependencies, PK is: {instance2.pk}")
++
++if instance2.pk is None:
++    print("✓ PASS: PK is correctly set to None after delete() with dependencies")
++else:
++    print("✗ FAIL: PK is not None after delete() with dependencies")
++    print(f"  Expected: None")
++    print(f"  Got: {instance2.pk}")
+\ No newline at end of file

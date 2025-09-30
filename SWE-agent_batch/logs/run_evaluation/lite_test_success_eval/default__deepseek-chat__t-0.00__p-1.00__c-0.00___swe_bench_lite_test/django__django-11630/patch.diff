@@ -1,0 +1,114 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..5cf5eda6ab
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,107 @@
++#!/usr/bin/env python
++"""
++Script to reproduce the issue where Django throws error when different apps 
++with different models have the same table name but use different databases.
++"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++settings.configure(
++    DEBUG=True,
++    DATABASES={
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': 'default.db',
++        },
++        'other': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': 'other.db',
++        }
++    },
++    INSTALLED_APPS=[
++        'django.contrib.contenttypes',
++        'django.contrib.auth',
++    ],
++    USE_TZ=True,
++)
++
++django.setup()
++
++from django.apps import apps
++from django.db import models
++from django.core.checks import run_checks
++
++# Create test models
++class BaseModel(models.Model):
++    """Model in base app using default database"""
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'base'
++        db_table = 'shared_table'
++
++class OtherModel(models.Model):
++    """Model in other app using other database"""
++    title = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'other'
++        db_table = 'shared_table'
++
++# Register the models manually
++from django.apps.registry import Apps
++
++class TestConfig:
++    name = 'base'
++    label = 'base'
++
++class OtherConfig:
++    name = 'other'
++    label = 'other'
++
++# Create a custom apps registry
++class TestApps(Apps):
++    def __init__(self):
++        super().__init__()
++        self.app_configs = {}
++        
++    def register_model(self, app_label, model):
++        if app_label not in self.all_models:
++            self.all_models[app_label] = {}
++        self.all_models[app_label][model._meta.model_name] = model
++        
++    def get_models(self, include_auto_created=False, include_swapped=False):
++        models = []
++        for app_label in self.all_models:
++            for model_name in self.all_models[app_label]:
++                model = self.all_models[app_label][model_name]
++                if not model._meta.auto_created or include_auto_created:
++                    models.append(model)
++        return models
++
++# Create test apps instance
++test_apps = TestApps()
++test_apps.register_model('base', BaseModel)
++test_apps.register_model('other', OtherModel)
++
++# Monkey patch apps to use our test apps
++import django.apps
++original_apps = django.apps.apps
++django.apps.apps = test_apps
++
++# Run the checks
++try:
++    errors = run_checks()
++    print("Check results:")
++    for error in errors:
++        print(f"  {error}")
++        if error.id == 'models.E028':
++            print("\nERROR REPRODUCED: models.E028 detected!")
++            print("This is the issue we need to fix.")
++finally:
++    # Restore original apps
++    django.apps.apps = original_apps
+\ No newline at end of file

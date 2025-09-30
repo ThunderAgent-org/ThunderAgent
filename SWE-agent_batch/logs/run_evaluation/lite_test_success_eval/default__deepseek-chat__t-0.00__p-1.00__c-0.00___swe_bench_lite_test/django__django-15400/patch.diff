@@ -1,0 +1,278 @@
+diff --git a/_2 b/_2
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/django/utils/functional.py b/django/utils/functional.py
+index 9e1be0fe0f..4b218ca606 100644
+--- a/django/utils/functional.py
++++ b/django/utils/functional.py
+@@ -373,6 +373,17 @@ class LazyObject:
+     __len__ = new_method_proxy(len)
+     __contains__ = new_method_proxy(operator.contains)
+ 
++    # Addition support
++    def __add__(self, other):
++        if self._wrapped is empty:
++            self._setup()
++        return self._wrapped + other
++
++    def __radd__(self, other):
++        if self._wrapped is empty:
++            self._setup()
++        return other + self._wrapped
++
+ 
+ def unpickle_lazyobject(wrapped):
+     """
+diff --git a/test_custom_lazy.py b/test_custom_lazy.py
+new file mode 100644
+index 0000000000..c8a36df3d9
+--- /dev/null
++++ b/test_custom_lazy.py
+@@ -0,0 +1,50 @@
++#!/usr/bin/env python
++"""Test __add__ and __radd__ with custom LazyObject subclass"""
++
++import sys
++import os
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++
++from django.utils.functional import LazyObject, empty
++
++class CustomLazyObject(LazyObject):
++    """Custom LazyObject subclass for testing"""
++    
++    def __init__(self, value):
++        super().__init__()
++        self._value = value
++    
++    def _setup(self):
++        self._wrapped = self._value
++
++print("Testing CustomLazyObject...")
++
++# Test 1: Integer operations
++custom_lazy_int = CustomLazyObject(10)
++assert custom_lazy_int + 5 == 15, "__add__ failed"
++assert 5 + custom_lazy_int == 15, "__radd__ failed"
++print("✓ Integer operations work")
++
++# Test 2: String operations
++custom_lazy_str = CustomLazyObject("world")
++assert custom_lazy_str + "!" == "world!", "__add__ failed for strings"
++assert "hello " + custom_lazy_str == "hello world", "__radd__ failed for strings"
++print("✓ String operations work")
++
++# Test 3: List operations
++custom_lazy_list = CustomLazyObject([3, 4])
++assert custom_lazy_list + [5, 6] == [3, 4, 5, 6], "__add__ failed for lists"
++assert [1, 2] + custom_lazy_list == [1, 2, 3, 4], "__radd__ failed for lists"
++print("✓ List operations work")
++
++# Test 4: Lazy evaluation
++custom_lazy = CustomLazyObject(42)
++assert custom_lazy._wrapped is empty, "Lazy object evaluated too early"
++result = custom_lazy + 8
++assert custom_lazy._wrapped == 42, "Lazy object didn't evaluate correctly"
++assert result == 50, "Wrong result"
++result2 = 8 + custom_lazy
++assert result2 == 50, "Wrong result for reverse addition"
++print("✓ Lazy evaluation works correctly")
++
++print("\n✅ All custom LazyObject tests passed!")
+\ No newline at end of file
+diff --git a/test_radd.py b/test_radd.py
+new file mode 100644
+index 0000000000..283ddf8c11
+--- /dev/null
++++ b/test_radd.py
+@@ -0,0 +1,42 @@
++#!/usr/bin/env python
++"""Test script to reproduce the __radd__ issue with SimpleLazyObject"""
++
++from django.utils.functional import SimpleLazyObject
++
++# Test case 1: Regular addition (__add__) - force evaluation first
++print("Test 1: Regular addition (__add__) after evaluation")
++lazy_num = SimpleLazyObject(lambda: 5)
++# Force evaluation by accessing the wrapped object
++_ = str(lazy_num)  # This will trigger evaluation
++result1 = lazy_num + 3
++print(f"lazy_num + 3 = {result1}")
++
++# Test case 2: Reverse addition (__radd__) - this should fail
++print("\nTest 2: Reverse addition (__radd__)")
++try:
++    result2 = 3 + lazy_num
++    print(f"3 + lazy_num = {result2}")
++except TypeError as e:
++    print(f"Error: {e}")
++
++# Test case 3: String concatenation
++print("\nTest 3: String concatenation")
++lazy_str = SimpleLazyObject(lambda: "world")
++# Force evaluation
++_ = str(lazy_str)
++try:
++    result3 = "hello " + lazy_str  # This should also fail
++    print(f"'hello ' + lazy_str = {result3}")
++except TypeError as e:
++    print(f"Error: {e}")
++
++# Test case 4: List concatenation
++print("\nTest 4: List concatenation")
++lazy_list = SimpleLazyObject(lambda: [3, 4])
++# Force evaluation
++_ = str(lazy_list)
++try:
++    result4 = [1, 2] + lazy_list  # This should also fail
++    print(f"[1, 2] + lazy_list = {result4}")
++except TypeError as e:
++    print(f"Error: {e}")
+\ No newline at end of file
+diff --git a/test_radd_comprehensive.py b/test_radd_comprehensive.py
+new file mode 100644
+index 0000000000..af69773b76
+--- /dev/null
++++ b/test_radd_comprehensive.py
+@@ -0,0 +1,71 @@
++#!/usr/bin/env python
++"""Comprehensive test script for __add__ and __radd__ implementation"""
++
++from django.utils.functional import SimpleLazyObject
++
++print("=== Testing SimpleLazyObject __add__ and __radd__ ===\n")
++
++# Test 1: Integer addition
++print("Test 1: Integer addition")
++lazy_int = SimpleLazyObject(lambda: 10)
++print(f"lazy_int + 5 = {lazy_int + 5}")
++print(f"5 + lazy_int = {5 + lazy_int}")
++print()
++
++# Test 2: String concatenation
++print("Test 2: String concatenation")
++lazy_str = SimpleLazyObject(lambda: "world")
++print(f"lazy_str + '!' = {lazy_str + '!'}")
++print(f"'hello ' + lazy_str = {'hello ' + lazy_str}")
++print()
++
++# Test 3: List concatenation
++print("Test 3: List concatenation")
++lazy_list = SimpleLazyObject(lambda: [3, 4])
++print(f"lazy_list + [5, 6] = {lazy_list + [5, 6]}")
++print(f"[1, 2] + lazy_list = {[1, 2] + lazy_list}")
++print()
++
++# Test 4: Tuple concatenation
++print("Test 4: Tuple concatenation")
++lazy_tuple = SimpleLazyObject(lambda: (3, 4))
++print(f"lazy_tuple + (5, 6) = {lazy_tuple + (5, 6)}")
++print(f"(1, 2) + lazy_tuple = {(1, 2) + lazy_tuple}")
++print()
++
++# Test 5: Lazy evaluation (should not evaluate until needed)
++print("Test 5: Lazy evaluation")
++evaluation_count = [0]
++
++def counting_func():
++    evaluation_count[0] += 1
++    return 42
++
++lazy_counting = SimpleLazyObject(counting_func)
++print(f"Evaluation count before operations: {evaluation_count[0]}")
++result = lazy_counting + 8
++print(f"Result: {result}")
++print(f"Evaluation count after first operation: {evaluation_count[0]}")
++result2 = 8 + lazy_counting
++print(f"Result2: {result2}")
++print(f"Evaluation count after second operation: {evaluation_count[0]}")
++print()
++
++# Test 6: Error cases
++print("Test 6: Error cases")
++lazy_num = SimpleLazyObject(lambda: 5)
++lazy_str2 = SimpleLazyObject(lambda: "hello")
++
++try:
++    result = lazy_num + "string"  # int + str should fail
++    print(f"lazy_num + 'string' = {result}")
++except TypeError as e:
++    print(f"lazy_num + 'string' failed as expected: {e}")
++
++try:
++    result = "string" + lazy_num  # str + int should fail
++    print(f"'string' + lazy_num = {result}")
++except TypeError as e:
++    print(f"'string' + lazy_num failed as expected: {e}")
++
++print("\n=== All tests completed successfully! ===")
+\ No newline at end of file
+diff --git a/test_simple.py b/test_simple.py
+new file mode 100644
+index 0000000000..15ef439b26
+--- /dev/null
++++ b/test_simple.py
+@@ -0,0 +1,62 @@
++#!/usr/bin/env python
++"""Simple test for our __add__ and __radd__ implementation"""
++
++import sys
++import os
++sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
++
++from django.utils.functional import SimpleLazyObject, LazyObject
++
++# Test basic functionality
++print("Testing SimpleLazyObject...")
++
++# Test 1: Integer operations
++lazy_int = SimpleLazyObject(lambda: 10)
++assert lazy_int + 5 == 15, "__add__ failed"
++assert 5 + lazy_int == 15, "__radd__ failed"
++print("✓ Integer operations work")
++
++# Test 2: String operations
++lazy_str = SimpleLazyObject(lambda: "world")
++assert lazy_str + "!" == "world!", "__add__ failed for strings"
++assert "hello " + lazy_str == "hello world", "__radd__ failed for strings"
++print("✓ String operations work")
++
++# Test 3: List operations
++lazy_list = SimpleLazyObject(lambda: [3, 4])
++assert lazy_list + [5, 6] == [3, 4, 5, 6], "__add__ failed for lists"
++assert [1, 2] + lazy_list == [1, 2, 3, 4], "__radd__ failed for lists"
++print("✓ List operations work")
++
++# Test 4: Lazy evaluation
++count = [0]
++def counting_func():
++    count[0] += 1
++    return 42
++
++lazy_count = SimpleLazyObject(counting_func)
++assert count[0] == 0, "Lazy object evaluated too early"
++result = lazy_count + 8
++assert count[0] == 1, "Lazy object didn't evaluate when needed"
++assert result == 50, "Wrong result"
++result2 = 8 + lazy_count
++assert count[0] == 1, "Lazy object evaluated again unnecessarily"
++assert result2 == 50, "Wrong result for reverse addition"
++print("✓ Lazy evaluation works correctly")
++
++# Test 5: Error propagation
++try:
++    lazy_num = SimpleLazyObject(lambda: 5)
++    result = lazy_num + "string"  # Should fail
++    assert False, "Should have raised TypeError"
++except TypeError:
++    pass  # Expected
++
++try:
++    result = "string" + lazy_num  # Should fail
++    assert False, "Should have raised TypeError"
++except TypeError:
++    pass  # Expected
++print("✓ Error propagation works correctly")
++
++print("\n✅ All tests passed!")
+\ No newline at end of file

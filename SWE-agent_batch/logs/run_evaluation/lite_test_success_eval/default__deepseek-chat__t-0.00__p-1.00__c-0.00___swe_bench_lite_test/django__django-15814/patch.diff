@@ -1,0 +1,495 @@
+diff --git a/debug_deferred_to_data.py b/debug_deferred_to_data.py
+new file mode 100644
+index 0000000000..6a74bf5c8b
+--- /dev/null
++++ b/debug_deferred_to_data.py
+@@ -0,0 +1,91 @@
++#!/usr/bin/env python
++"""Debug script to understand deferred_to_data behavior"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Define the models from the PR description
++class CustomModel(models.Model):
++    name = models.CharField(max_length=16)
++    
++    class Meta:
++        app_label = 'test'
++
++class ProxyCustomModel(CustomModel):
++    class Meta:
++        proxy = True
++        app_label = 'test'
++
++class AnotherModel(models.Model):
++    custom = models.ForeignKey(
++        ProxyCustomModel,
++        on_delete=models.SET_NULL,
++        null=True,
++        blank=True,
++    )
++    
++    class Meta:
++        app_label = 'test'
++
++# Create the tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(CustomModel)
++    schema_editor.create_model(AnotherModel)
++
++# Create some test data
++custom_obj = CustomModel.objects.create(name="test")
++another_obj = AnotherModel.objects.create(custom=custom_obj)
++
++# Let's patch the deferred_to_data method to add debugging
++from django.db.models.sql.query import Query
++
++original_deferred_to_data = Query.deferred_to_data
++
++def debug_deferred_to_data(self, target):
++    print("\n=== Query.deferred_to_data called ===")
++    print(f"self.model: {self.model}")
++    print(f"self.deferred_loading: {self.deferred_loading}")
++    
++    # Call original method but catch the result
++    original_deferred_to_data(self, target)
++    
++    print(f"target after deferred_to_data: {target}")
++
++Query.deferred_to_data = debug_deferred_to_data
++
++# Try to reproduce the error
++print("Testing select_related with only on proxy model...")
++
++try:
++    objs = list(AnotherModel.objects.select_related("custom").only("custom__name").all())
++    print("SUCCESS: No error occurred!")
++    print(f"Retrieved {len(objs)} objects")
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file
+diff --git a/debug_fields.py b/debug_fields.py
+new file mode 100644
+index 0000000000..0f9f7a6cde
+--- /dev/null
++++ b/debug_fields.py
+@@ -0,0 +1,79 @@
++#!/usr/bin/env python
++"""Debug script to understand field differences"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Define the models from the PR description
++class CustomModel(models.Model):
++    name = models.CharField(max_length=16)
++    
++    class Meta:
++        app_label = 'test'
++
++class ProxyCustomModel(CustomModel):
++    class Meta:
++        proxy = True
++        app_label = 'test'
++
++class AnotherModel(models.Model):
++    custom = models.ForeignKey(
++        ProxyCustomModel,
++        on_delete=models.SET_NULL,
++        null=True,
++        blank=True,
++    )
++    
++    class Meta:
++        app_label = 'test'
++
++# Debug information
++print("=== Debug Information ===")
++print(f"CustomModel._meta.pk.attname: {CustomModel._meta.pk.attname}")
++print(f"ProxyCustomModel._meta.pk.attname: {ProxyCustomModel._meta.pk.attname}")
++print(f"CustomModel._meta.concrete_model: {CustomModel._meta.concrete_model}")
++print(f"ProxyCustomModel._meta.concrete_model: {ProxyCustomModel._meta.concrete_model}")
++
++# Check if they're the same
++print(f"\nAre PK attnames the same? {CustomModel._meta.pk.attname == ProxyCustomModel._meta.pk.attname}")
++print(f"Are concrete models the same? {CustomModel._meta.concrete_model == ProxyCustomModel._meta.concrete_model}")
++
++# Let's also check what fields each model has
++print("\n=== CustomModel fields ===")
++for field in CustomModel._meta.fields:
++    print(f"  {field.name} ({field.attname})")
++
++print("\n=== ProxyCustomModel fields ===")
++for field in ProxyCustomModel._meta.fields:
++    print(f"  {field.name} ({field.attname})")
++
++print("\n=== CustomModel concrete fields ===")
++for field in CustomModel._meta.concrete_fields:
++    print(f"  {field.name} ({field.attname})")
++
++print("\n=== ProxyCustomModel concrete fields ===")
++for field in ProxyCustomModel._meta.concrete_fields:
++    print(f"  {field.name} ({field.attname})")
+\ No newline at end of file
+diff --git a/debug_get_default_columns.py b/debug_get_default_columns.py
+new file mode 100644
+index 0000000000..43e19e06df
+--- /dev/null
++++ b/debug_get_default_columns.py
+@@ -0,0 +1,92 @@
++#!/usr/bin/env python
++"""Debug script to understand get_default_columns behavior"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Define the models from the PR description
++class CustomModel(models.Model):
++    name = models.CharField(max_length=16)
++    
++    class Meta:
++        app_label = 'test'
++
++class ProxyCustomModel(CustomModel):
++    class Meta:
++        proxy = True
++        app_label = 'test'
++
++class AnotherModel(models.Model):
++    custom = models.ForeignKey(
++        ProxyCustomModel,
++        on_delete=models.SET_NULL,
++        null=True,
++        blank=True,
++    )
++    
++    class Meta:
++        app_label = 'test'
++
++# Create the tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(CustomModel)
++    schema_editor.create_model(AnotherModel)
++
++# Create some test data
++custom_obj = CustomModel.objects.create(name="test")
++another_obj = AnotherModel.objects.create(custom=custom_obj)
++
++# Let's patch the get_default_columns method to add debugging
++from django.db.models.sql.compiler import SQLCompiler
++
++original_get_default_columns = SQLCompiler.get_default_columns
++
++def debug_get_default_columns(self, start_alias=None, opts=None, from_parent=None):
++    print("\n=== SQLCompiler.get_default_columns called ===")
++    print(f"opts.model: {opts.model if opts else 'None'}")
++    print(f"opts.concrete_model: {opts.concrete_model if opts else 'None'}")
++    
++    # Call original method but catch the result
++    result = original_get_default_columns(self, start_alias, opts, from_parent)
++    
++    print(f"Result columns: {[str(col) for col in result]}")
++    return result
++
++SQLCompiler.get_default_columns = debug_get_default_columns
++
++# Try to reproduce the error
++print("Testing select_related with only on proxy model...")
++
++try:
++    objs = list(AnotherModel.objects.select_related("custom").only("custom__name").all())
++    print("SUCCESS: No error occurred!")
++    print(f"Retrieved {len(objs)} objects")
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file
+diff --git a/debug_related_populator.py b/debug_related_populator.py
+new file mode 100644
+index 0000000000..742e4768b7
+--- /dev/null
++++ b/debug_related_populator.py
+@@ -0,0 +1,96 @@
++#!/usr/bin/env python
++"""Debug script to understand RelatedPopulator behavior"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Define the models from the PR description
++class CustomModel(models.Model):
++    name = models.CharField(max_length=16)
++    
++    class Meta:
++        app_label = 'test'
++
++class ProxyCustomModel(CustomModel):
++    class Meta:
++        proxy = True
++        app_label = 'test'
++
++class AnotherModel(models.Model):
++    custom = models.ForeignKey(
++        ProxyCustomModel,
++        on_delete=models.SET_NULL,
++        null=True,
++        blank=True,
++    )
++    
++    class Meta:
++        app_label = 'test'
++
++# Create the tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(CustomModel)
++    schema_editor.create_model(AnotherModel)
++
++# Create some test data
++custom_obj = CustomModel.objects.create(name="test")
++another_obj = AnotherModel.objects.create(custom=custom_obj)
++
++# Let's patch the RelatedPopulator to add debugging
++from django.db.models.query import RelatedPopulator
++
++original_init = RelatedPopulator.__init__
++
++def debug_init(self, klass_info, select, db):
++    print("\n=== RelatedPopulator.__init__ called ===")
++    print(f"klass_info['model']: {klass_info['model']}")
++    print(f"klass_info['model']._meta.pk.attname: {klass_info['model']._meta.pk.attname}")
++    print(f"klass_info['model']._meta.concrete_model: {klass_info['model']._meta.concrete_model}")
++    
++    # Call original init but catch the error
++    try:
++        original_init(self, klass_info, select, db)
++    except ValueError as e:
++        print(f"\nERROR: {e}")
++        print(f"self.init_list: {self.init_list}")
++        print(f"Looking for: {klass_info['model']._meta.pk.attname}")
++        raise
++
++RelatedPopulator.__init__ = debug_init
++
++# Try to reproduce the error
++print("Testing select_related with only on proxy model...")
++
++try:
++    objs = list(AnotherModel.objects.select_related("custom").only("custom__name").all())
++    print("SUCCESS: No error occurred!")
++    print(f"Retrieved {len(objs)} objects")
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file
+diff --git a/django/db/models/sql/compiler.py b/django/db/models/sql/compiler.py
+index 461e1ae156..29834d26a7 100644
+--- a/django/db/models/sql/compiler.py
++++ b/django/db/models/sql/compiler.py
+@@ -838,7 +838,8 @@ class SQLCompiler:
+                 # parent model data is already present in the SELECT clause,
+                 # and we want to avoid reloading the same data again.
+                 continue
+-            if field.model in only_load and field.attname not in only_load[field.model]:
++            concrete_model = field.model._meta.concrete_model
++            if concrete_model in only_load and field.attname not in only_load[concrete_model]:
+                 continue
+             alias = self.query.join_parent_model(opts, model, start_alias, seen_models)
+             column = field.get_col(alias)
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 33cc636b22..5036335bec 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -748,7 +748,7 @@ class Query(BaseExpression):
+                     cur_model = source.related_model
+                 else:
+                     cur_model = source.remote_field.model
+-                opts = cur_model._meta
++                opts = cur_model._meta.concrete_model._meta
+                 # Even if we're "just passing through" this model, we must add
+                 # both the current model's pk and the related reference field
+                 # (if it's not a reverse relation) to the things we select.
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 0000000000..51f70ba913
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,75 @@
++#!/usr/bin/env python
++"""Script to reproduce the proxy model select_related + only error"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Define the models from the PR description
++class CustomModel(models.Model):
++    name = models.CharField(max_length=16)
++    
++    class Meta:
++        app_label = 'test'
++
++class ProxyCustomModel(CustomModel):
++    class Meta:
++        proxy = True
++        app_label = 'test'
++
++class AnotherModel(models.Model):
++    custom = models.ForeignKey(
++        ProxyCustomModel,
++        on_delete=models.SET_NULL,
++        null=True,
++        blank=True,
++    )
++    
++    class Meta:
++        app_label = 'test'
++
++# Create the tables
++from django.db import connection
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(CustomModel)
++    schema_editor.create_model(AnotherModel)
++
++# Try to reproduce the error
++print("Testing select_related with only on proxy model...")
++
++try:
++    # Create some test data
++    custom_obj = CustomModel.objects.create(name="test")
++    another_obj = AnotherModel.objects.create(custom=custom_obj)
++    
++    # This should trigger the error
++    objs = list(AnotherModel.objects.select_related("custom").only("custom__name").all())
++    print("SUCCESS: No error occurred!")
++    print(f"Retrieved {len(objs)} objects")
++    
++except Exception as e:
++    print(f"ERROR: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file

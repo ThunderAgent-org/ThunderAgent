@@ -1,0 +1,96 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..55baa0d12f
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,89 @@
++#!/usr/bin/env python
++"""Script to reproduce the empty_form crash issue"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        SECRET_KEY='test-secret-key',
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django import forms
++from django.forms import formset_factory
++
++# Create a simple form
++class TestForm(forms.Form):
++    a_field = forms.CharField()
++
++# Test case 1: form_kwargs with empty_permitted=True
++print("Test 1: form_kwargs with empty_permitted=True")
++try:
++    TestFormSet = formset_factory(TestForm, fields=['a_field'])
++    formset = TestFormSet(
++        queryset=[],
++        form_kwargs={'empty_permitted': True}
++    )
++    # Try to access empty_form
++    empty_form = formset.empty_form
++    print("✓ empty_form accessed successfully")
++    print(f"  empty_form.empty_permitted: {empty_form.empty_permitted}")
++except Exception as e:
++    print(f"✗ Error: {e}")
++    import traceback
++    traceback.print_exc()
++
++print("\n" + "="*50 + "\n")
++
++# Test case 2: form_kwargs with empty_permitted=False
++print("Test 2: form_kwargs with empty_permitted=False")
++try:
++    TestFormSet = formset_factory(TestForm, fields=['a_field'])
++    formset = TestFormSet(
++        queryset=[],
++        form_kwargs={'empty_permitted': False}
++    )
++    # Try to access empty_form
++    empty_form = formset.empty_form
++    print("✓ empty_form accessed successfully")
++    print(f"  empty_form.empty_permitted: {empty_form.empty_permitted}")
++except Exception as e:
++    print(f"✗ Error: {e}")
++    import traceback
++    traceback.print_exc()
++
++print("\n" + "="*50 + "\n")
++
++# Test case 3: form_kwargs without empty_permitted (control)
++print("Test 3: form_kwargs without empty_permitted (control)")
++try:
++    TestFormSet = formset_factory(TestForm, fields=['a_field'])
++    formset = TestFormSet(
++        queryset=[],
++        form_kwargs={}
++    )
++    # Try to access empty_form
++    empty_form = formset.empty_form
++    print("✓ empty_form accessed successfully")
++    print(f"  empty_form.empty_permitted: {empty_form.empty_permitted}")
++except Exception as e:
++    print(f"✗ Error: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file

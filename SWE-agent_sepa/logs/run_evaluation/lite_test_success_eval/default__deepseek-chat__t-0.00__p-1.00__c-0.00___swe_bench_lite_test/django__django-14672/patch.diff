@@ -1,0 +1,111 @@
+diff --git a/django/db/models/fields/reverse_related.py b/django/db/models/fields/reverse_related.py
+index ccc2223a5f..65950590e2 100644
+--- a/django/db/models/fields/reverse_related.py
++++ b/django/db/models/fields/reverse_related.py
+@@ -310,7 +310,7 @@ class ManyToManyRel(ForeignObjectRel):
+     def identity(self):
+         return super().identity + (
+             self.through,
+-            self.through_fields,
++            make_hashable(self.through_fields),
+             self.db_constraint,
+         )
+ 
+diff --git a/reproduce_error.py b/reproduce_error.py
+new file mode 100644
+index 0000000000..002fac55b8
+--- /dev/null
++++ b/reproduce_error.py
+@@ -0,0 +1,91 @@
++#!/usr/bin/env python
++"""Script to reproduce the ManyToManyRel hash error"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++settings.configure(
++    DEBUG=True,
++    DATABASES={
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': ':memory:',
++        }
++    },
++    INSTALLED_APPS=[
++        'django.contrib.contenttypes',
++        'django.contrib.auth',
++    ],
++)
++
++django.setup()
++
++from django.db import models
++
++# Create the models from the PR description
++class Parent(models.Model):
++    name = models.CharField(max_length=256)
++    
++    class Meta:
++        app_label = 'test_app'
++
++class ProxyParent(Parent):
++    class Meta:
++        proxy = True
++        app_label = 'test_app'
++
++class Child(models.Model):
++    parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
++    many_to_many_field = models.ManyToManyField(
++        to=Parent,
++        through="ManyToManyModel",
++        through_fields=['child', 'parent'],
++        related_name="something"
++    )
++    
++    class Meta:
++        app_label = 'test_app'
++
++class ManyToManyModel(models.Model):
++    parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='+')
++    child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='+')
++    second_child = models.ForeignKey(Child, on_delete=models.CASCADE, null=True, default=None)
++    
++    class Meta:
++        app_label = 'test_app'
++
++# Try to run model checks which should trigger the error
++try:
++    from django.core.checks.registry import registry
++    
++    # This should trigger the error
++    errors = registry.run_checks()
++    print("No error occurred!")
++    print(f"Number of errors: {len(errors)}")
++    
++except Exception as e:
++    print(f"Error occurred: {type(e).__name__}: {e}")
++    import traceback
++    traceback.print_exc()
++
++# Also try to directly trigger the hash operation
++try:
++    # Get the ManyToManyRel object
++    field = Child._meta.get_field('many_to_many_field')
++    rel = field.remote_field
++    print(f"\nManyToManyRel object: {rel}")
++    print(f"through_fields: {rel.through_fields}")
++    print(f"type of through_fields: {type(rel.through_fields)}")
++    
++    # Try to hash it
++    print("\nAttempting to hash the ManyToManyRel object...")
++    hash_value = hash(rel)
++    print(f"Hash successful: {hash_value}")
++    
++except Exception as e:
++    print(f"\nError when hashing: {type(e).__name__}: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file

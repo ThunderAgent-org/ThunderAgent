@@ -1,0 +1,105 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..8b7b1438ca
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,98 @@
++#!/usr/bin/env python
++"""
++Script to reproduce the issue with migration auth.0011_update_proxy_permissions
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.auth',
++            'django.contrib.contenttypes',
++            'django.contrib.apps',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.apps import apps
++from django.contrib.auth.models import Permission
++from django.contrib.contenttypes.models import ContentType
++from django.db import models, connection
++from django.db.migrations.executor import MigrationExecutor
++
++# Create a simple model to simulate the issue
++class ConcreteModel(models.Model):
++    class Meta:
++        app_label = 'test_app'
++
++class ProxyModel(ConcreteModel):
++    class Meta:
++        proxy = True
++        app_label = 'test_app'
++
++# We need to manually register these models
++from django.apps.config import AppConfig
++
++class TestAppConfig(AppConfig):
++    name = 'test_app'
++    
++app_config = TestAppConfig('test_app', 'test_app')
++app_config.models = {'concretemodel': ConcreteModel, 'proxymodel': ProxyModel}
++apps.app_configs['test_app'] = app_config
++apps.all_models['test_app'] = app_config.models
++
++# Create the tables
++with connection.schema_editor() as schema_editor:
++    schema_editor.create_model(ConcreteModel)
++
++# Now let's simulate the problematic scenario
++# First, create permissions for the concrete model
++concrete_content_type = ContentType.objects.get_for_model(ConcreteModel, for_concrete_model=True)
++proxy_content_type = ContentType.objects.get_for_model(ProxyModel, for_concrete_model=False)
++
++# Create a permission for the concrete model (this is what would exist before the migration)
++permission, created = Permission.objects.get_or_create(
++    content_type=concrete_content_type,
++    codename='add_concretemodel',
++    defaults={'name': 'Can add concrete model'}
++)
++
++print(f"Created permission: {permission.codename} with content_type: {permission.content_type}")
++
++# Now, let's simulate what happens if someone manually creates a permission for the proxy model
++# This can happen if the model was recreated as a proxy
++proxy_permission, created = Permission.objects.get_or_create(
++    content_type=proxy_content_type,
++    codename='add_concretemodel',  # Same codename as the concrete permission
++    defaults={'name': 'Can add concrete model'}
++)
++
++print(f"Created proxy permission: {proxy_permission.codename} with content_type: {proxy_permission.content_type}")
++
++# Now let's try to run the migration function
++import importlib
++update_proxy_permissions = importlib.import_module('django.contrib.auth.migrations.0011_update_proxy_permissions')
++
++print("\nAttempting to run the migration function...")
++try:
++    # Simulate the migration
++    migration_func = update_proxy_permissions.update_proxy_model_permissions
++    migration_func(apps, None)
++    print("Migration completed successfully!")
++except Exception as e:
++    print(f"Error during migration: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file

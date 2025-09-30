@@ -1,0 +1,105 @@
+diff --git a/django/contrib/auth/validators.py b/django/contrib/auth/validators.py
+index b4878cfd45..1304f20a60 100644
+--- a/django/contrib/auth/validators.py
++++ b/django/contrib/auth/validators.py
+@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
+ 
+ @deconstructible
+ class ASCIIUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only English letters, '
+         'numbers, and @/./+/-/_ characters.'
+@@ -17,7 +17,7 @@ class ASCIIUsernameValidator(validators.RegexValidator):
+ 
+ @deconstructible
+ class UnicodeUsernameValidator(validators.RegexValidator):
+-    regex = r'^[\w.@+-]+$'
++    regex = r'\A[\w.@+-]+\Z'
+     message = _(
+         'Enter a valid username. This value may contain only letters, '
+         'numbers, and @/./+/-/_ characters.'
+diff --git a/test_username_validator.py b/test_username_validator.py
+new file mode 100644
+index 0000000000..1bcb5405a9
+--- /dev/null
++++ b/test_username_validator.py
+@@ -0,0 +1,76 @@
++#!/usr/bin/env python
++"""Test script to reproduce the username validator issue with trailing newlines."""
++
++import os
++import re
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        USE_I18N=True,
++        USE_L10N=True,
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.contrib.auth.validators import ASCIIUsernameValidator, UnicodeUsernameValidator
++
++def test_validator(validator_class, validator_name):
++    """Test a validator with various username patterns."""
++    print(f"\n=== Testing {validator_name} ===")
++    
++    validator = validator_class()
++    
++    # Test cases
++    test_cases = [
++        ("validuser", "Valid username"),
++        ("user.name", "Username with dot"),
++        ("user@name", "Username with @"),
++        ("user+name", "Username with +"),
++        ("user-name", "Username with -"),
++        ("user_name", "Username with _"),
++        ("user123", "Username with numbers"),
++        ("user\n", "Username with trailing newline"),
++        ("user\n\n", "Username with multiple trailing newlines"),
++        ("\nuser", "Username with leading newline"),
++        ("user\nname", "Username with embedded newline"),
++    ]
++    
++    for username, description in test_cases:
++        try:
++            validator(username)
++            print(f"✓ '{repr(username)}' - {description} - ACCEPTED")
++        except Exception as e:
++            print(f"✗ '{repr(username)}' - {description} - REJECTED: {e}")
++
++def test_regex_patterns():
++    """Test the regex patterns directly to understand the behavior."""
++    print("\n=== Testing Regex Patterns ===")
++    
++    # Current pattern (with ^ and $)
++    current_pattern = r'^[\w.@+-]+$'
++    # Proposed pattern (with \A and \Z)
++    proposed_pattern = r'\A[\w.@+-]+\Z'
++    
++    test_strings = ["validuser", "user\n", "\nuser", "user\nname"]
++    
++    for test_str in test_strings:
++        print(f"\nTesting: {repr(test_str)}")
++        
++        current_match = re.match(current_pattern, test_str)
++        proposed_match = re.match(proposed_pattern, test_str)
++        
++        print(f"Current pattern (^...$): {'MATCH' if current_match else 'NO MATCH'}")
++        print(f"Proposed pattern (\\A...\\Z): {'MATCH' if proposed_match else 'NO MATCH'}")
++
++if __name__ == "__main__":
++    # Test the validators
++    test_validator(ASCIIUsernameValidator, "ASCIIUsernameValidator")
++    test_validator(UnicodeUsernameValidator, "UnicodeUsernameValidator")
++    
++    # Test regex patterns directly
++    test_regex_patterns()
+\ No newline at end of file

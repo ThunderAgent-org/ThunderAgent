@@ -1,0 +1,190 @@
+diff --git a/django/core/exceptions.py b/django/core/exceptions.py
+index dc084b8692..686f8c8ebb 100644
+--- a/django/core/exceptions.py
++++ b/django/core/exceptions.py
+@@ -182,6 +182,61 @@ class ValidationError(Exception):
+     def __repr__(self):
+         return 'ValidationError(%s)' % self
+ 
++    def __eq__(self, other):
++        """
++        Two ValidationErrors are equal if they have the same structure and content.
++        Comparison is order-independent for lists and dictionaries.
++        """
++        if not isinstance(other, ValidationError):
++            return False
++        
++        # Check if both have error_dict
++        if hasattr(self, 'error_dict') and hasattr(other, 'error_dict'):
++            # Compare dictionaries - order of keys doesn't matter
++            if set(self.error_dict.keys()) != set(other.error_dict.keys()):
++                return False
++            
++            # Compare values for each key - order of errors in lists doesn't matter
++            for field in self.error_dict:
++                self_errors = self.error_dict[field]
++                other_errors = other.error_dict[field]
++                
++                # If both are lists of ValidationErrors, compare them order-independently
++                if len(self_errors) != len(other_errors):
++                    return False
++                
++                # Create sets of string representations for order-independent comparison
++                self_error_set = set(str(err) for err in self_errors)
++                other_error_set = set(str(err) for err in other_errors)
++                
++                if self_error_set != other_error_set:
++                    return False
++            
++            return True
++        
++        # Check if both have error_list but not error_dict
++        elif hasattr(self, 'error_list') and hasattr(other, 'error_list') and \
++             not hasattr(self, 'error_dict') and not hasattr(other, 'error_dict'):
++            # Compare lists - order doesn't matter
++            if len(self.error_list) != len(other.error_list):
++                return False
++            
++            # Create sets of string representations for order-independent comparison
++            self_error_set = set(str(err) for err in self.error_list)
++            other_error_set = set(str(err) for err in other.error_list)
++            
++            return self_error_set == other_error_set
++        
++        # Check if both are simple errors (have message attribute)
++        elif hasattr(self, 'message') and hasattr(other, 'message'):
++            # Compare message, code, and params
++            return (self.message == other.message and 
++                    getattr(self, 'code', None) == getattr(other, 'code', None) and
++                    getattr(self, 'params', None) == getattr(other, 'params', None))
++        
++        # Different structures
++        return False
++
+ 
+ class EmptyResultSet(Exception):
+     """A database query predicate is impossible."""
+diff --git a/test_validation_error.py b/test_validation_error.py
+new file mode 100644
+index 0000000000..aee5db28b3
+--- /dev/null
++++ b/test_validation_error.py
+@@ -0,0 +1,61 @@
++#!/usr/bin/env python
++"""Test script to reproduce ValidationError equality issue"""
++
++from django.core.exceptions import ValidationError
++
++# Test 1: Simple ValidationErrors with same message
++print("Test 1: Simple ValidationErrors with same message")
++error1 = ValidationError("This is an error")
++error2 = ValidationError("This is an error")
++print(f"error1 == error2: {error1 == error2}")
++print(f"error1.messages: {error1.messages}")
++print(f"error2.messages: {error2.messages}")
++print()
++
++# Test 2: ValidationErrors with list of messages
++print("Test 2: ValidationErrors with list of messages")
++error3 = ValidationError(["Error 1", "Error 2"])
++error4 = ValidationError(["Error 1", "Error 2"])
++print(f"error3 == error4: {error3 == error4}")
++print(f"error3.messages: {error3.messages}")
++print(f"error4.messages: {error4.messages}")
++print()
++
++# Test 3: ValidationErrors with dictionary of messages
++print("Test 3: ValidationErrors with dictionary of messages")
++error5 = ValidationError({"field1": ["Error 1"], "field2": ["Error 2"]})
++error6 = ValidationError({"field1": ["Error 1"], "field2": ["Error 2"]})
++print(f"error5 == error6: {error5 == error6}")
++print(f"error5.messages: {error5.messages}")
++print(f"error6.messages: {error6.messages}")
++print()
++
++# Test 4: ValidationErrors with different order in dictionary
++print("Test 4: ValidationErrors with different order in dictionary")
++error7 = ValidationError({"field1": ["Error 1"], "field2": ["Error 2"]})
++error8 = ValidationError({"field2": ["Error 2"], "field1": ["Error 1"]})
++print(f"error7 == error8: {error7 == error8}")
++print(f"error7.messages: {error7.messages}")
++print(f"error8.messages: {error8.messages}")
++print()
++
++# Test 5: ValidationErrors with different order in list
++print("Test 5: ValidationErrors with different order in list")
++error9 = ValidationError(["Error 1", "Error 2"])
++error10 = ValidationError(["Error 2", "Error 1"])
++print(f"error9 == error10: {error9 == error10}")
++print(f"error9.messages: {error9.messages}")
++print(f"error10.messages: {error10.messages}")
++print()
++
++# Test 6: Check if they are the same object
++print("Test 6: Check if they are the same object")
++print(f"error1 is error2: {error1 is error2}")
++print()
++
++# Test 7: Check attributes
++print("Test 7: Check attributes")
++print(f"hasattr(error1, 'message'): {hasattr(error1, 'message')}")
++print(f"hasattr(error1, 'error_list'): {hasattr(error1, 'error_list')}")
++print(f"hasattr(error1, 'error_dict'): {hasattr(error1, 'error_dict')}")
++print(f"hasattr(error5, 'error_dict'): {hasattr(error5, 'error_dict')}")
+\ No newline at end of file
+diff --git a/test_validation_error_detailed.py b/test_validation_error_detailed.py
+new file mode 100644
+index 0000000000..6fc6c1b336
+--- /dev/null
++++ b/test_validation_error_detailed.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python
++"""Detailed test script to understand ValidationError structure"""
++
++from django.core.exceptions import ValidationError
++
++# Test different types of ValidationErrors
++print("=== Simple ValidationError ===")
++error1 = ValidationError("Simple error")
++print(f"Attributes: {[attr for attr in dir(error1) if not attr.startswith('_')]}")
++print(f"hasattr('message'): {hasattr(error1, 'message')}")
++print(f"hasattr('error_list'): {hasattr(error1, 'error_list')}")
++print(f"hasattr('error_dict'): {hasattr(error1, 'error_dict')}")
++print(f"message: {getattr(error1, 'message', 'N/A')}")
++print(f"error_list: {getattr(error1, 'error_list', 'N/A')}")
++print(f"error_list[0].message: {error1.error_list[0].message}")
++print()
++
++print("=== List ValidationError ===")
++error2 = ValidationError(["Error 1", "Error 2"])
++print(f"Attributes: {[attr for attr in dir(error2) if not attr.startswith('_')]}")
++print(f"hasattr('message'): {hasattr(error2, 'message')}")
++print(f"hasattr('error_list'): {hasattr(error2, 'error_list')}")
++print(f"hasattr('error_dict'): {hasattr(error2, 'error_dict')}")
++print(f"error_list: {error2.error_list}")
++for i, err in enumerate(error2.error_list):
++    print(f"  error_list[{i}].message: {err.message}")
++print()
++
++print("=== Dict ValidationError ===")
++error3 = ValidationError({"field1": ["Error 1"], "field2": ["Error 2"]})
++print(f"Attributes: {[attr for attr in dir(error3) if not attr.startswith('_')]}")
++print(f"hasattr('message'): {hasattr(error3, 'message')}")
++print(f"hasattr('error_list'): {hasattr(error3, 'error_list')}")
++print(f"hasattr('error_dict'): {hasattr(error3, 'error_dict')}")
++print(f"error_dict: {error3.error_dict}")
++for field, errors in error3.error_dict.items():
++    print(f"  {field}: {errors}")
++    for i, err in enumerate(errors):
++        print(f"    error_dict[{field}][{i}].message: {err.message}")
++print()
++
++# Test nested ValidationErrors
++print("=== Nested ValidationError ===")
++error4 = ValidationError({"field1": ValidationError(["Nested error 1", "Nested error 2"])})
++print(f"error_dict: {error4.error_dict}")
++for field, errors in error4.error_dict.items():
++    print(f"  {field}: {errors}")
++    for i, err in enumerate(errors):
++        print(f"    error_dict[{field}][{i}].message: {err.message}")
+\ No newline at end of file

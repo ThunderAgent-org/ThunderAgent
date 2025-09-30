@@ -1,0 +1,498 @@
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z '' ']'
++++ export CONDA_SHLVL=0
++++ CONDA_SHLVL=0
++++ '[' -n '' ']'
++++++ dirname /opt/miniconda3/bin/conda
+++++ dirname /opt/miniconda3/bin
++++ PATH=/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export PATH
++++ '[' -z '' ']'
++++ PS1=
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1=
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=1
++++ CONDA_SHLVL=1
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=2
+++ CONDA_SHLVL=2
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_1=/opt/miniconda3
+++ CONDA_PREFIX_1=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ cd /testbed
++ git config --global --add safe.directory /testbed
++ cd /testbed
++ git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   django/db/migrations/serializer.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	test_empty_flag.py
+	test_enum_decompose.py
+	test_enum_flag_combination.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
+commit b30c0081d4d8a31ab7dc7f72a4c7099af606ef29
+Author: Simon Charette <charette.s@gmail.com>
+Date:   Tue Aug 23 23:06:04 2022 -0400
+
+    Refs #27412 -- Confirmed support for executing Coalesce(subquery).
+    
+    This has been supported for subqueries wrapped in Subquery since the expression
+    was introduced and for Queryset directly since Subquery resolves to sql.Query.
+    
+    Piggy-backed on the existing tests covering Coalesce handling of EmptyResultSet
+    as it seemed like a proper location to combine testing.
+
+diff --git a/tests/db_functions/comparison/test_coalesce.py b/tests/db_functions/comparison/test_coalesce.py
+index 9125923847..d5f6a7a6a2 100644
+--- a/tests/db_functions/comparison/test_coalesce.py
++++ b/tests/db_functions/comparison/test_coalesce.py
+@@ -64,11 +64,14 @@ class CoalesceTests(TestCase):
+ 
+     def test_empty_queryset(self):
+         Author.objects.create(name="John Smith")
++        queryset = Author.objects.values("id")
+         tests = [
+-            Author.objects.none(),
+-            Subquery(Author.objects.none()),
++            (queryset.none(), "QuerySet.none()"),
++            (queryset.filter(id=0), "QuerySet.filter(id=0)"),
++            (Subquery(queryset.none()), "Subquery(QuerySet.none())"),
++            (Subquery(queryset.filter(id=0)), "Subquery(Queryset.filter(id=0)"),
+         ]
+-        for empty_query in tests:
+-            with self.subTest(empty_query.__class__.__name__):
++        for empty_query, description in tests:
++            with self.subTest(description), self.assertNumQueries(1):
+                 qs = Author.objects.annotate(annotation=Coalesce(empty_query, 42))
+                 self.assertEqual(qs.first().annotation, 42)
++ git -c core.fileMode=false diff b30c0081d4d8a31ab7dc7f72a4c7099af606ef29
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..51aea3ab1b 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,10 +125,47 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
+-        return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+-            {"import %s" % module},
+-        )
++        
++        # Check if this is a single enum value with a name
++        if self.value.name is not None:
++            return (
++                "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
++                {"import %s" % module},
++            )
++        
++        # For combined enum flags (no single name), decompose into individual members
++        members, remainder = enum._decompose(enum_class, self.value.value)
++        
++        # If there are no members or the only member has value 0 (special case)
++        if not members or (len(members) == 1 and members[0].value == 0):
++            return (
++                "%s.%s(0)" % (module, enum_class.__qualname__),
++                {"import %s" % module},
++            )
++        
++        # Build an expression that ORs the individual members together
++        member_strings = []
++        for member in members:
++            # Skip members with value 0 (they don't have proper names)
++            if member.value != 0:
++                member_strings.append("%s.%s['%s']" % (module, enum_class.__qualname__, member.name))
++        
++        # If we have valid members to combine
++        if member_strings:
++            # Join with | operator
++            expression = " | ".join(member_strings)
++            
++            # If there's a remainder (shouldn't happen for proper flag enums), add it
++            if remainder:
++                expression = "%s | %s.%s(%d)" % (expression, module, enum_class.__qualname__, remainder)
++            
++            return expression, {"import %s" % module}
++        else:
++            # Fallback: no valid members found
++            return (
++                "%s.%s(%d)" % (module, enum_class.__qualname__, self.value.value),
++                {"import %s" % module},
++            )
+ 
+ 
+ class FloatSerializer(BaseSimpleSerializer):
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z x ']'
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1='(testbed) '
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=3
++++ CONDA_SHLVL=3
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=4
+++ CONDA_SHLVL=4
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_3=/opt/miniconda3
+++ CONDA_PREFIX_3=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ python -m pip install -e .
+Obtaining file:///testbed
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Checking if build backend supports build_editable: started
+  Checking if build backend supports build_editable: finished with status 'done'
+  Getting requirements to build editable: started
+  Getting requirements to build editable: finished with status 'done'
+  Preparing editable metadata (pyproject.toml): started
+  Preparing editable metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: asgiref>=3.5.2 in /opt/miniconda3/envs/testbed/lib/python3.9/site-packages (from Django==4.2.dev20220824103047) (3.8.1)
+Requirement already satisfied: sqlparse>=0.2.2 in /opt/miniconda3/envs/testbed/lib/python3.9/site-packages (from Django==4.2.dev20220824103047) (0.5.1)
+Requirement already satisfied: typing-extensions>=4 in /opt/miniconda3/envs/testbed/lib/python3.9/site-packages (from asgiref>=3.5.2->Django==4.2.dev20220824103047) (4.12.2)
+Building wheels for collected packages: Django
+  Building editable for Django (pyproject.toml): started
+  Building editable for Django (pyproject.toml): finished with status 'done'
+  Created wheel for Django: filename=django-4.2.dev20220824103047-0.editable-py3-none-any.whl size=27221 sha256=b3eca923e83efbfd4f58ff541d697b928091ad0bf7a0995765cb36f70b535202
+  Stored in directory: /tmp/pip-ephem-wheel-cache-uzdo2k33/wheels/7d/66/67/70d1ee2124ccf21d601c352e25cdca10f611f7c8b3f9ffb9e4
+Successfully built Django
+Installing collected packages: Django
+  Attempting uninstall: Django
+    Found existing installation: Django 4.2.dev20220824103047
+    Uninstalling Django-4.2.dev20220824103047:
+      Successfully uninstalled Django-4.2.dev20220824103047
+Successfully installed Django-4.2.dev20220824103047
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable.It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
++ git checkout b30c0081d4d8a31ab7dc7f72a4c7099af606ef29 tests/migrations/test_writer.py
+Updated 0 paths from 17623c1b07
++ git apply -v -
+Checking patch tests/migrations/test_writer.py...
+Applied patch tests/migrations/test_writer.py cleanly.
++ : '>>>>> Start Test Output'
++ ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 migrations.test_writer
+test_args_kwargs_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_args_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_empty_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_expand_args_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_kwargs_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_multiline_args_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_nested_args_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_nested_operation_expand_args_signature (migrations.test_writer.OperationWriterTests) ... ok
+test_custom_operation (migrations.test_writer.WriterTests) ... ok
+test_deconstruct_class_arguments (migrations.test_writer.WriterTests) ... ok
+test_migration_file_header_comments (migrations.test_writer.WriterTests)
+Test comments at top of file. ... ok
+test_migration_path (migrations.test_writer.WriterTests) ... ok
+test_models_import_omitted (migrations.test_writer.WriterTests)
+django.db.models shouldn't be imported if unused. ... ok
+test_register_non_serializer (migrations.test_writer.WriterTests) ... ok
+test_register_serializer (migrations.test_writer.WriterTests) ... ok
+test_serialize_builtin_types (migrations.test_writer.WriterTests) ... ok
+test_serialize_builtins (migrations.test_writer.WriterTests) ... ok
+test_serialize_choices (migrations.test_writer.WriterTests) ... ok
+test_serialize_class_based_validators (migrations.test_writer.WriterTests)
+Ticket #22943: Test serialization of class-based validators, including ... ok
+test_serialize_collections (migrations.test_writer.WriterTests) ... ok
+test_serialize_compiled_regex (migrations.test_writer.WriterTests)
+Make sure compiled regex can be serialized. ... ok
+test_serialize_complex_func_index (migrations.test_writer.WriterTests) ... ok
+test_serialize_constants (migrations.test_writer.WriterTests) ... ok
+test_serialize_datetime (migrations.test_writer.WriterTests) ... ok
+test_serialize_empty_nonempty_tuple (migrations.test_writer.WriterTests)
+Ticket #22679: makemigrations generates invalid code for (an empty ... ok
+test_serialize_enum_flags (migrations.test_writer.WriterTests) ... FAIL
+test_serialize_enums (migrations.test_writer.WriterTests) ... ok
+test_serialize_fields (migrations.test_writer.WriterTests) ... ok
+test_serialize_frozensets (migrations.test_writer.WriterTests) ... ok
+test_serialize_functions (migrations.test_writer.WriterTests) ... ok
+test_serialize_functools_partial (migrations.test_writer.WriterTests) ... ok
+test_serialize_functools_partialmethod (migrations.test_writer.WriterTests) ... ok
+test_serialize_iterators (migrations.test_writer.WriterTests) ... ok
+test_serialize_lazy_objects (migrations.test_writer.WriterTests) ... ok
+test_serialize_local_function_reference (migrations.test_writer.WriterTests)
+A reference in a local scope can't be serialized. ... ok
+test_serialize_managers (migrations.test_writer.WriterTests) ... ok
+test_serialize_multiline_strings (migrations.test_writer.WriterTests) ... ok
+test_serialize_nested_class (migrations.test_writer.WriterTests) ... ok
+test_serialize_numbers (migrations.test_writer.WriterTests) ... ok
+test_serialize_path_like (migrations.test_writer.WriterTests) ... ok
+test_serialize_pathlib (migrations.test_writer.WriterTests) ... ok
+test_serialize_range (migrations.test_writer.WriterTests) ... ok
+test_serialize_set (migrations.test_writer.WriterTests) ... ok
+test_serialize_settings (migrations.test_writer.WriterTests) ... ok
+test_serialize_strings (migrations.test_writer.WriterTests) ... ok
+test_serialize_timedelta (migrations.test_writer.WriterTests) ... ok
+test_serialize_type_model (migrations.test_writer.WriterTests) ... ok
+test_serialize_type_none (migrations.test_writer.WriterTests) ... ok
+test_serialize_unbound_method_reference (migrations.test_writer.WriterTests)
+An unbound method used within a class body can be serialized. ... ok
+test_serialize_uuid (migrations.test_writer.WriterTests) ... ok
+test_simple_migration (migrations.test_writer.WriterTests)
+Tests serializing a simple migration. ... ok
+test_sorted_imports (migrations.test_writer.WriterTests)
+#24155 - Tests ordering of imports. ... ok
+
+======================================================================
+FAIL: test_serialize_enum_flags (migrations.test_writer.WriterTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/testbed/tests/migrations/test_writer.py", line 416, in test_serialize_enum_flags
+    self.assertSerializedResultEqual(
+  File "/testbed/tests/migrations/test_writer.py", line 245, in assertSerializedResultEqual
+    self.assertEqual(MigrationWriter.serialize(value), target)
+AssertionError: Tuples differ: ("mig[28 chars]num['B'] | migrations.test_writer.IntFlagEnum[[36 chars]er'}) != ("mig[28 chars]num['A'] | migrations.test_writer.IntFlagEnum[[36 chars]er'})
+
+First differing element 0:
+"migr[15 chars]ter.IntFlagEnum['B'] | migrations.test_writer.IntFlagEnum['A']"
+"migr[15 chars]ter.IntFlagEnum['A'] | migrations.test_writer.IntFlagEnum['B']"
+
+- ("migrations.test_writer.IntFlagEnum['B'] | "
+?                                       ^
+
++ ("migrations.test_writer.IntFlagEnum['A'] | "
+?                                       ^
+
+-  "migrations.test_writer.IntFlagEnum['A']",
+?                                       ^
+
++  "migrations.test_writer.IntFlagEnum['B']",
+?                                       ^
+
+   {'import migrations.test_writer'})
+
+----------------------------------------------------------------------
+Ran 52 tests in 0.039s
+
+FAILED (failures=1)
+Testing against Django installed in '/testbed/django'
+Importing application migrations
+Found 52 test(s).
+Skipping setup of unused database(s): default, other.
+System check identified no issues (0 silenced).
++ : '>>>>> End Test Output'
++ git checkout b30c0081d4d8a31ab7dc7f72a4c7099af606ef29 tests/migrations/test_writer.py
+Updated 1 path from 17623c1b07

@@ -1,0 +1,101 @@
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..c7e4cc85ea
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,94 @@
++"""
++Script to reproduce the issue with ModelForm fields with callable defaults
++not correctly propagating default values.
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++settings.configure(
++    DEBUG=True,
++    DATABASES={
++        'default': {
++            'ENGINE': 'django.db.backends.sqlite3',
++            'NAME': ':memory:',
++        }
++    },
++    INSTALLED_APPS=[
++        'django.contrib.contenttypes',
++        'django.contrib.auth',
++        'django.contrib.admin',
++    ],
++    SECRET_KEY='test-secret-key',
++    USE_TZ=True,
++)
++
++django.setup()
++
++# Now import Django components
++from django.db import models
++from django import forms
++from django.contrib import admin
++from django.core.exceptions import ValidationError
++
++# Create the models as described in the PR but with a regular CharField instead of ArrayField
++class Thing(models.Model):
++    pass
++
++class RelatedModel(models.Model):
++    thing = models.ForeignKey(Thing, on_delete=models.CASCADE)
++    plop = models.CharField(max_length=42, default='default_value')
++
++# Create the form and admin as described in the PR
++class RelatedModelForm(forms.ModelForm):
++    def clean(self):
++        raise ValidationError("whatever")
++
++class RelatedModelInline(admin.TabularInline):
++    form = RelatedModelForm
++    model = RelatedModel
++    extra = 1
++
++@admin.register(Thing)
++class ThingAdmin(admin.ModelAdmin):
++    inlines = [RelatedModelInline]
++
++# Test the issue
++if __name__ == "__main__":
++    # Create a Thing instance
++    thing = Thing.objects.create()
++    
++    # Create a RelatedModel instance with default value
++    related = RelatedModel.objects.create(thing=thing)
++    print(f"Initial plop value: {related.plop}")
++    
++    # Test the form
++    form_data = {
++        'relatedmodel_set-TOTAL_FORMS': '1',
++        'relatedmodel_set-INITIAL_FORMS': '0',
++        'relatedmodel_set-MIN_NUM_FORMS': '0',
++        'relatedmodel_set-MAX_NUM_FORMS': '1000',
++        'relatedmodel_set-0-plop': 'test',
++    }
++    
++    # Create a form instance
++    form = RelatedModelForm(data=form_data)
++    
++    print(f"Form is valid: {form.is_valid()}")
++    if not form.is_valid():
++        print(f"Form errors: {form.errors}")
++    
++    # Check the initial value handling
++    print(f"Form initial data: {form.initial}")
++    print(f"Field show_hidden_initial: {form.fields['plop'].show_hidden_initial}")
++    
++    # Test the bound field
++    bound_field = form['plop']
++    print(f"Bound field initial: {bound_field.initial}")
++    print(f"Bound field value: {bound_field.value()}")
++    
++    # Test the hidden initial field
++    print(f"Hidden initial field name: {bound_field.html_initial_name}")
++    print(f"Hidden initial field id: {bound_field.html_initial_id}")
+\ No newline at end of file

@@ -1,0 +1,339 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index d17232e4ec..84c7895f3c 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -967,7 +967,48 @@ class RenameIndex(IndexOperation):
+ 
+     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+         if self.old_fields:
+-            # Backward operation with unnamed index is a no-op.
++            # For unnamed indexes, rename back to an auto-generated name
++            model = to_state.apps.get_model(app_label, self.model_name)
++            if not self.allow_migrate_model(schema_editor.connection.alias, model):
++                return
++
++            # Find the current index with the new name
++            from_model = from_state.apps.get_model(app_label, self.model_name)
++            columns = [
++                from_model._meta.get_field(field).column for field in self.old_fields
++            ]
++            matching_index_name = schema_editor._constraint_names(
++                from_model, column_names=columns, index=True
++            )
++            if len(matching_index_name) != 1:
++                raise ValueError(
++                    "Found wrong number (%s) of indexes for %s(%s)."
++                    % (
++                        len(matching_index_name),
++                        from_model._meta.db_table,
++                        ", ".join(columns),
++                    )
++                )
++            
++            # The current index has the new name, we need to rename it back
++            current_index = models.Index(
++                fields=self.old_fields,
++                name=matching_index_name[0],
++            )
++            
++            # Generate an auto-generated name for the index (similar to what would be created for index_together)
++            original_name = schema_editor._create_index_name(
++                from_model._meta.db_table,
++                columns,
++                suffix="_idx"
++            )
++            
++            original_index = models.Index(
++                fields=self.old_fields,
++                name=original_name,
++            )
++            
++            schema_editor.rename_index(model, current_index, original_index)
+             return
+ 
+         self.new_name_lower, self.old_name_lower = (
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..0f8068aa76
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,84 @@
++#!/usr/bin/env python
++"""Script to reproduce the RenameIndex crash issue."""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models, connection
++from django.db.migrations.operations.models import RenameIndex
++from django.db.migrations.state import ProjectState
++
++# Create a simple test model
++class TestModel(models.Model):
++    weight = models.IntegerField()
++    pink = models.IntegerField()
++    
++    class Meta:
++        app_label = 'test_app'
++        index_together = [('weight', 'pink')]
++
++# Create a project state with the test model
++project_state = ProjectState()
++project_state.add_model(TestModel._meta)
++
++# Create the RenameIndex operation
++operation = RenameIndex(
++    "TestModel", 
++    new_name="new_test_idx", 
++    old_fields=("weight", "pink")
++)
++
++# Apply the operation forward
++new_state = project_state.clone()
++operation.state_forwards('test_app', new_state)
++
++print("Testing RenameIndex with unnamed index...")
++print("=" * 50)
++
++# Simulate the database operations
++try:
++    # First forward operation
++    print("1. Applying database_forwards...")
++    with connection.schema_editor() as editor:
++        operation.database_forwards('test_app', editor, project_state, new_state)
++    print("   ✓ Forward operation completed")
++    
++    # Then backward operation (this should be a no-op according to current code)
++    print("2. Applying database_backwards...")
++    with connection.schema_editor() as editor:
++        operation.database_backwards('test_app', editor, new_state, project_state)
++    print("   ✓ Backward operation completed")
++    
++    # Now try to apply forward again (this should crash according to the PR)
++    print("3. Re-applying database_forwards...")
++    with connection.schema_editor() as editor:
++        operation.database_forwards('test_app', editor, project_state, new_state)
++    print("   ✓ Second forward operation completed")
++    
++    print("\n✅ Test passed - no crash occurred")
++    
++except Exception as e:
++    print(f"\n❌ Test failed with error: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file
+diff --git a/reproduce_issue2.py b/reproduce_issue2.py
+new file mode 100644
+index 0000000000..d3bfbfeb68
+--- /dev/null
++++ b/reproduce_issue2.py
+@@ -0,0 +1,84 @@
++#!/usr/bin/env python
++"""Script to reproduce the RenameIndex crash issue using the test infrastructure."""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Add the testbed to Python path
++sys.path.insert(0, '/testbed')
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models, connection
++from django.db.migrations.operations.models import RenameIndex
++from django.test import TestCase
++from tests.migrations.test_base import OperationTestBase
++
++# Create a test class that inherits from OperationTestBase
++class TestRenameIndex(OperationTestBase):
++    def test_rename_index_issue(self):
++        """Test the specific issue described in the PR."""
++        app_label = "test_rninui"
++        project_state = self.set_up_test_model(app_label, index_together=True)
++        table_name = app_label + "_pony"
++        
++        # Create the RenameIndex operation
++        operation = RenameIndex(
++            "Pony", 
++            new_name="new_pony_test_idx", 
++            old_fields=("weight", "pink")
++        )
++        
++        new_state = project_state.clone()
++        operation.state_forwards(app_label, new_state)
++        
++        print("Testing RenameIndex with unnamed index...")
++        print("=" * 50)
++        
++        # First forward operation
++        print("1. Applying database_forwards...")
++        with connection.schema_editor() as editor:
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        print("   ✓ Forward operation completed")
++        
++        # Backward operation (this should be a no-op according to current code)
++        print("2. Applying database_backwards...")
++        with connection.schema_editor() as editor:
++            operation.database_backwards(app_label, editor, new_state, project_state)
++        print("   ✓ Backward operation completed")
++        
++        # Now try to apply forward again (this should crash according to the PR)
++        print("3. Re-applying database_forwards...")
++        try:
++            with connection.schema_editor() as editor:
++                operation.database_forwards(app_label, editor, project_state, new_state)
++            print("   ✓ Second forward operation completed")
++            print("\n✅ Test passed - no crash occurred")
++        except Exception as e:
++            print(f"\n❌ Test failed with error: {e}")
++            import traceback
++            traceback.print_exc()
++
++# Run the test
++if __name__ == "__main__":
++    test = TestRenameIndex()
++    test.test_rename_index_issue()
+\ No newline at end of file
+diff --git a/test_pr_scenario.py b/test_pr_scenario.py
+new file mode 100644
+index 0000000000..46fa150254
+--- /dev/null
++++ b/test_pr_scenario.py
+@@ -0,0 +1,96 @@
++#!/usr/bin/env python
++"""Test the exact scenario described in the PR."""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Add the testbed to Python path
++sys.path.insert(0, '/testbed')
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models, connection
++from django.db.migrations.operations.models import RenameIndex
++from django.test import TestCase
++from tests.migrations.test_base import OperationTestBase
++
++# Create a test class that inherits from OperationTestBase
++class TestPRScenario(OperationTestBase):
++    def test_pr_scenario(self):
++        """Test the exact scenario described in the PR."""
++        app_label = "test_pr_scenario"
++        project_state = self.set_up_test_model(app_label, index_together=True)
++        table_name = app_label + "_pony"
++        
++        # Create the RenameIndex operation
++        operation = RenameIndex(
++            "Pony", 
++            new_name="new_pony_test_idx", 
++            old_fields=("weight", "pink")
++        )
++        
++        new_state = project_state.clone()
++        operation.state_forwards(app_label, new_state)
++        
++        print("Testing PR scenario: RenameIndex with unnamed index")
++        print("=" * 60)
++        
++        # Step 1: First forward operation
++        print("1. First database_forwards (rename auto-generated index → new_pony_test_idx)")
++        with connection.schema_editor() as editor:
++            operation.database_forwards(app_label, editor, project_state, new_state)
++        print("   ✓ Index renamed to 'new_pony_test_idx'")
++        
++        # Step 2: Backward operation
++        print("2. database_backwards (should rename back to auto-generated name)")
++        with connection.schema_editor() as editor:
++            operation.database_backwards(app_label, editor, new_state, project_state)
++        print("   ✓ Index renamed back to auto-generated name")
++        
++        # Step 3: Re-apply forward operation (this was crashing before the fix)
++        print("3. Re-applying database_forwards (should rename auto-generated index → new_pony_test_idx again)")
++        try:
++            with connection.schema_editor() as editor:
++                operation.database_forwards(app_label, editor, project_state, new_state)
++            print("   ✓ Second forward operation completed successfully")
++            print("\n✅ PR scenario test passed - no crash occurred!")
++            return True
++        except Exception as e:
++            print(f"\n❌ PR scenario test failed with error: {e}")
++            import traceback
++            traceback.print_exc()
++            return False
++
++# Run the test
++if __name__ == "__main__":
++    test = TestPRScenario()
++    success = test.test_pr_scenario()
++    
++    if success:
++        print("\n" + "=" * 60)
++        print("SUMMARY: The fix successfully resolves the issue described in the PR.")
++        print("The RenameIndex operation can now be applied, reversed, and re-applied")
++        print("without crashing, even for unnamed indexes.")
++    else:
++        print("\n" + "=" * 60)
++        print("SUMMARY: The issue described in the PR still exists.")
++        print("The RenameIndex operation crashes when re-applied after a backward operation.")
+\ No newline at end of file

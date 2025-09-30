@@ -1,0 +1,558 @@
+diff --git a/django/core/management/commands/sqlmigrate.py b/django/core/management/commands/sqlmigrate.py
+index f0b663222a..b51d1739a4 100644
+--- a/django/core/management/commands/sqlmigrate.py
++++ b/django/core/management/commands/sqlmigrate.py
+@@ -56,7 +56,7 @@ class Command(BaseCommand):
+         targets = [(app_label, migration.name)]
+ 
+         # Show begin/end around output only for atomic migrations
+-        self.output_transaction = migration.atomic
++        self.output_transaction = migration.atomic and connection.features.can_rollback_ddl
+ 
+         # Make a plan that represents just the requested migrations and show SQL
+         # for it
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..0319fa5f2b
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,110 @@
++#!/usr/bin/env python
++"""
++Script to reproduce the sqlmigrate issue with BEGIN/COMMIT wrapping
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.core.management import call_command
++from django.db import connections
++
++# Create a simple migration to test
++from django.db import migrations, models
++
++
++class Migration(migrations.Migration):
++    atomic = True
++    
++    dependencies = []
++    
++    operations = [
++        migrations.CreateModel(
++            name='TestModel',
++            fields=[
++                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
++                ('name', models.CharField(max_length=100)),
++            ],
++        ),
++    ]
++
++
++def test_sqlmigrate():
++    """Test sqlmigrate output with different database backends"""
++    
++    # Test with SQLite (which doesn't support transactional DDL)
++    print("=== Testing with SQLite (can_rollback_ddl=False) ===")
++    connection = connections['default']
++    print(f"SQLite can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    
++    # Create a temporary migration file
++    migration_content = '''
++from django.db import migrations, models
++
++class Migration(migrations.Migration):
++    atomic = True
++    
++    dependencies = []
++    
++    operations = [
++        migrations.CreateModel(
++            name='TestModel',
++            fields=[
++                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
++                ('name', models.CharField(max_length=100)),
++            ],
++        ),
++    ]
++'''
++    
++    # Write migration file
++    migrations_dir = '/tmp/test_migrations'
++    os.makedirs(migrations_dir, exist_ok=True)
++    
++    with open(os.path.join(migrations_dir, '__init__.py'), 'w') as f:
++        f.write('')
++    
++    with open(os.path.join(migrations_dir, '0001_initial.py'), 'w') as f:
++        f.write(migration_content)
++    
++    # Add the migration to INSTALLED_APPS
++    settings.INSTALLED_APPS.append('test_migrations')
++    
++    # Update the migration loader
++    from django.db.migrations.loader import MigrationLoader
++    loader = MigrationLoader(connection)
++    
++    # Test sqlmigrate
++    print("\nSQLMigrate output:")
++    try:
++        call_command('sqlmigrate', 'test_migrations', '0001_initial', database='default')
++    except Exception as e:
++        print(f"Error: {e}")
++    
++    # Clean up
++    import shutil
++    shutil.rmtree(migrations_dir, ignore_errors=True)
++
++
++if __name__ == '__main__':
++    test_sqlmigrate()
+\ No newline at end of file
+diff --git a/test_databases.py b/test_databases.py
+new file mode 100644
+index 0000000000..149e2bffb4
+--- /dev/null
++++ b/test_databases.py
+@@ -0,0 +1,67 @@
++#!/usr/bin/env python
++"""
++Script to test which databases support transactional DDL
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Test different database configurations
++database_configs = {
++    'sqlite': {
++        'ENGINE': 'django.db.backends.sqlite3',
++        'NAME': ':memory:',
++    },
++    'mysql': {
++        'ENGINE': 'django.db.backends.mysql',
++        'NAME': 'test',
++        'USER': 'test',
++        'PASSWORD': 'test',
++        'HOST': 'localhost',
++        'PORT': '3306',
++    },
++    'postgresql': {
++        'ENGINE': 'django.db.backends.postgresql',
++        'NAME': 'test',
++        'USER': 'test',
++        'PASSWORD': 'test',
++        'HOST': 'localhost',
++        'PORT': '5432',
++    },
++    'oracle': {
++        'ENGINE': 'django.db.backends.oracle',
++        'NAME': 'test',
++        'USER': 'test',
++        'PASSWORD': 'test',
++        'HOST': 'localhost',
++        'PORT': '1521',
++    },
++}
++
++for db_name, db_config in database_configs.items():
++    print(f"\n=== Testing {db_name} ===")
++    
++    # Configure Django settings
++    if not settings.configured:
++        settings.configure(
++            DEBUG=True,
++            DATABASES={'default': db_config},
++            INSTALLED_APPS=['django.contrib.contenttypes'],
++            USE_TZ=True,
++            LOGGING_CONFIG=None,  # Disable logging
++        )
++    
++    try:
++        django.setup()
++        from django.db import connections
++        
++        connection = connections['default']
++        print(f"Database: {connection.vendor}")
++        print(f"can_rollback_ddl: {connection.features.can_rollback_ddl}")
++        
++    except Exception as e:
++        print(f"Error: {e}")
++    
++    # Reset settings
++    settings._wrapped = None
+\ No newline at end of file
+diff --git a/test_features.py b/test_features.py
+new file mode 100644
+index 0000000000..1e6b2b17a4
+--- /dev/null
++++ b/test_features.py
+@@ -0,0 +1,33 @@
++#!/usr/bin/env python
++"""
++Script to test database features without connecting
++"""
++import os
++import sys
++
++# Add testbed to path
++sys.path.insert(0, '/testbed')
++
++# Import database backends directly
++from django.db.backends.sqlite3 import features as sqlite_features
++from django.db.backends.mysql import features as mysql_features
++from django.db.backends.postgresql import features as postgresql_features
++from django.db.backends.oracle import features as oracle_features
++
++print("=== Database Features - can_rollback_ddl ===")
++
++# SQLite
++sqlite_feat = sqlite_features.DatabaseFeatures()
++print(f"SQLite: {sqlite_feat.can_rollback_ddl}")
++
++# MySQL
++mysql_feat = mysql_features.DatabaseFeatures()
++print(f"MySQL: {mysql_feat.can_rollback_ddl}")
++
++# PostgreSQL
++postgresql_feat = postgresql_features.DatabaseFeatures()
++print(f"PostgreSQL: {postgresql_feat.can_rollback_ddl}")
++
++# Oracle
++oracle_feat = oracle_features.DatabaseFeatures()
++print(f"Oracle: {oracle_feat.can_rollback_ddl}")
+\ No newline at end of file
+diff --git a/test_fix.py b/test_fix.py
+new file mode 100644
+index 0000000000..7e02b5a246
+--- /dev/null
++++ b/test_fix.py
+@@ -0,0 +1,94 @@
++#!/usr/bin/env python
++"""
++Script to test the sqlmigrate fix
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import connections
++from django.core.management.commands.sqlmigrate import Command
++
++
++def test_sqlmigrate_fix():
++    """Test that sqlmigrate correctly sets output_transaction"""
++    
++    connection = connections['default']
++    
++    print("=== Testing sqlmigrate fix ===")
++    print(f"Database: {connection.vendor}")
++    print(f"can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    
++    # Test case 1: Atomic migration with database that supports DDL rollback
++    class AtomicMigration:
++        atomic = True
++    
++    migration = AtomicMigration()
++    
++    cmd = Command()
++    
++    # Simulate what sqlmigrate does now
++    cmd.output_transaction = migration.atomic and connection.features.can_rollback_ddl
++    
++    print(f"\nTest case 1: Atomic migration with DDL rollback support")
++    print(f"Migration atomic: {migration.atomic}")
++    print(f"Database can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    print(f"output_transaction: {cmd.output_transaction}")
++    
++    # Test case 2: Atomic migration with database that doesn't support DDL rollback
++    # Mock a database that doesn't support DDL rollback
++    original_can_rollback_ddl = connection.features.can_rollback_ddl
++    connection.features.can_rollback_ddl = False
++    
++    cmd.output_transaction = migration.atomic and connection.features.can_rollback_ddl
++    
++    print(f"\nTest case 2: Atomic migration without DDL rollback support")
++    print(f"Migration atomic: {migration.atomic}")
++    print(f"Database can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    print(f"output_transaction: {cmd.output_transaction}")
++    
++    # Restore original value
++    connection.features.can_rollback_ddl = original_can_rollback_ddl
++    
++    # Test case 3: Non-atomic migration
++    class NonAtomicMigration:
++        atomic = False
++    
++    migration = NonAtomicMigration()
++    
++    cmd.output_transaction = migration.atomic and connection.features.can_rollback_ddl
++    
++    print(f"\nTest case 3: Non-atomic migration")
++    print(f"Migration atomic: {migration.atomic}")
++    print(f"Database can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    print(f"output_transaction: {cmd.output_transaction}")
++    
++    print("\n=== Summary ===")
++    print("The fix ensures that output_transaction is True only when:")
++    print("1. The migration is atomic AND")
++    print("2. The database supports DDL rollback")
++    print("This matches the behavior of the migration executor.")
++
++
++if __name__ == '__main__':
++    test_sqlmigrate_fix()
+\ No newline at end of file
+diff --git a/test_sqlmigrate.py b/test_sqlmigrate.py
+new file mode 100644
+index 0000000000..bbf566c617
+--- /dev/null
++++ b/test_sqlmigrate.py
+@@ -0,0 +1,73 @@
++#!/usr/bin/env python
++"""
++Script to test the sqlmigrate issue with BEGIN/COMMIT wrapping
++"""
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import connections
++from django.db.migrations.executor import MigrationExecutor
++from django.db.migrations import Migration
++
++
++def test_migration_executor():
++    """Test how MigrationExecutor handles transactions"""
++    
++    connection = connections['default']
++    executor = MigrationExecutor(connection)
++    
++    # Create a mock migration
++    class MockMigration(Migration):
++        atomic = True
++        
++        def __init__(self):
++            self.app_label = 'test_app'
++            self.name = '0001_initial'
++    
++    migration = MockMigration()
++    
++    print("=== Testing MigrationExecutor behavior ===")
++    print(f"Database: {connection.vendor}")
++    print(f"can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    print(f"Migration atomic: {migration.atomic}")
++    
++    # Test what the schema editor would do
++    with connection.schema_editor(collect_sql=True, atomic=migration.atomic) as schema_editor:
++        print(f"Schema editor atomic_migration: {schema_editor.atomic_migration}")
++    
++    # Now test sqlmigrate logic
++    from django.core.management.commands.sqlmigrate import Command
++    cmd = Command()
++    
++    # Simulate what sqlmigrate does
++    cmd.output_transaction = migration.atomic  # This is the current buggy logic
++    print(f"\nCurrent sqlmigrate output_transaction: {cmd.output_transaction}")
++    
++    # What it should be
++    correct_output_transaction = migration.atomic and connection.features.can_rollback_ddl
++    print(f"Correct output_transaction should be: {correct_output_transaction}")
++
++
++if __name__ == '__main__':
++    test_migration_executor()
+\ No newline at end of file
+diff --git a/test_sqlmigrate_integration.py b/test_sqlmigrate_integration.py
+new file mode 100644
+index 0000000000..50757deb8a
+--- /dev/null
++++ b/test_sqlmigrate_integration.py
+@@ -0,0 +1,126 @@
++#!/usr/bin/env python
++"""
++Integration test for sqlmigrate fix
++"""
++import os
++import sys
++import tempfile
++import shutil
++import django
++from django.conf import settings
++
++# Create a temporary directory for our test app
++temp_dir = tempfile.mkdtemp()
++app_dir = os.path.join(temp_dir, 'test_app')
++os.makedirs(app_dir)
++
++# Create __init__.py
++with open(os.path.join(app_dir, '__init__.py'), 'w') as f:
++    f.write('')
++
++# Create models.py
++with open(os.path.join(app_dir, 'models.py'), 'w') as f:
++    f.write('''
++from django.db import models
++
++class TestModel(models.Model):
++    name = models.CharField(max_length=100)
++''')
++
++# Create migrations directory
++migrations_dir = os.path.join(app_dir, 'migrations')
++os.makedirs(migrations_dir)
++
++# Create __init__.py in migrations
++with open(os.path.join(migrations_dir, '__init__.py'), 'w') as f:
++    f.write('')
++
++# Create a migration file
++with open(os.path.join(migrations_dir, '0001_initial.py'), 'w') as f:
++    f.write('''
++from django.db import migrations, models
++
++class Migration(migrations.Migration):
++    atomic = True
++    
++    dependencies = []
++    
++    operations = [
++        migrations.CreateModel(
++            name='TestModel',
++            fields=[
++                ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
++                ('name', models.CharField(max_length=100)),
++            ],
++        ),
++    ]
++''')
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++            'test_app',
++        ],
++        USE_TZ=True,
++    )
++
++# Add the temp directory to Python path
++sys.path.insert(0, temp_dir)
++
++django.setup()
++
++from django.db import connections
++from django.core.management import call_command
++from io import StringIO
++
++
++def test_sqlmigrate_output():
++    """Test sqlmigrate output with different database configurations"""
++    
++    connection = connections['default']
++    
++    print("=== Testing sqlmigrate output ===")
++    print(f"Database: {connection.vendor}")
++    print(f"can_rollback_ddl: {connection.features.can_rollback_ddl}")
++    
++    # Capture sqlmigrate output
++    out = StringIO()
++    
++    try:
++        call_command('sqlmigrate', 'test_app', '0001_initial', stdout=out)
++        output = out.getvalue()
++        
++        print("\nSQLMigrate output:")
++        print(output)
++        
++        # Check if BEGIN/COMMIT are present
++        has_begin = 'BEGIN' in output
++        has_commit = 'COMMIT' in output
++        
++        print(f"\nBEGIN present: {has_begin}")
++        print(f"COMMIT present: {has_commit}")
++        
++        # Verify the logic
++        should_have_transaction = connection.features.can_rollback_ddl
++        print(f"Should have transaction: {should_have_transaction}")
++        print(f"Correct: {has_begin == should_have_transaction}")
++        
++    except Exception as e:
++        print(f"Error: {e}")
++    
++    # Clean up
++    shutil.rmtree(temp_dir)
++
++
++if __name__ == '__main__':
++    test_sqlmigrate_output()
+\ No newline at end of file

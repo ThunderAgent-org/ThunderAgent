@@ -1,0 +1,165 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 0c64748ccd..fb1b8908aa 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1665,6 +1665,8 @@ class FilePathField(Field):
+                  recursive=False, allow_files=True, allow_folders=False, **kwargs):
+         self.path, self.match, self.recursive = path, match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
++        # Store whether the path is callable for deconstruction
++        self._path_is_callable = callable(path)
+         kwargs.setdefault('max_length', 100)
+         super().__init__(verbose_name, name, **kwargs)
+ 
+@@ -1688,7 +1690,11 @@ class FilePathField(Field):
+     def deconstruct(self):
+         name, path, args, kwargs = super().deconstruct()
+         if self.path != '':
+-            kwargs['path'] = self.path
++            # If path is callable, preserve it as-is for deconstruction
++            if self._path_is_callable:
++                kwargs['path'] = self.path
++            else:
++                kwargs['path'] = self.path
+         if self.match is not None:
+             kwargs['match'] = self.match
+         if self.recursive is not False:
+@@ -1708,8 +1714,10 @@ class FilePathField(Field):
+         return str(value)
+ 
+     def formfield(self, **kwargs):
++        # Evaluate callable path before passing to form field
++        path = self.path() if callable(self.path) else self.path
+         return super().formfield(**{
+-            'path': self.path,
++            'path': path,
+             'match': self.match,
+             'recursive': self.recursive,
+             'form_class': forms.FilePathField,
+diff --git a/django/forms/fields.py b/django/forms/fields.py
+index a977256525..cb61dc8891 100644
+--- a/django/forms/fields.py
++++ b/django/forms/fields.py
+@@ -1078,7 +1078,9 @@ class MultiValueField(Field):
+ class FilePathField(ChoiceField):
+     def __init__(self, path, *, match=None, recursive=False, allow_files=True,
+                  allow_folders=False, **kwargs):
+-        self.path, self.match, self.recursive = path, match, recursive
++        # Evaluate callable path if provided
++        self.path = path() if callable(path) else path
++        self.match, self.recursive = match, recursive
+         self.allow_files, self.allow_folders = allow_files, allow_folders
+         super().__init__(choices=(), **kwargs)
+ 
+diff --git a/test_callable_path.py b/test_callable_path.py
+new file mode 100644
+index 0000000000..829ae4a201
+--- /dev/null
++++ b/test_callable_path.py
+@@ -0,0 +1,105 @@
++#!/usr/bin/env python
++"""Test script to reproduce the callable path issue with FilePathField"""
++
++import os
++import tempfile
++from django.conf import settings
++from django.db import models
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        LOCAL_FILE_DIR=tempfile.gettempdir()
++    )
++
++import django
++django.setup()
++
++from django.db import connection
++from django.db.migrations import Migration
++from django.db.migrations.state import ProjectState
++from django.db.migrations.autodetector import MigrationAutodetector
++from django.db.migrations.state import ModelState
++from django.db.migrations import operations
++
++# Create a test model with a callable path
++class LocalFiles(models.Model):
++    name = models.CharField(max_length=255)
++    file = models.FilePathField(path=lambda: os.path.join(settings.LOCAL_FILE_DIR, 'example_dir'))
++    
++    class Meta:
++        app_label = 'test_app'
++
++# Test 1: Check if the path is callable
++print("Test 1: Checking if path is callable")
++field = LocalFiles._meta.get_field('file')
++print(f"Path type: {type(field.path)}")
++print(f"Is callable: {callable(field.path)}")
++
++# Test 2: Try to deconstruct the field (this is what migrations do)
++print("\nTest 2: Deconstructing the field")
++try:
++    name, path, args, kwargs = field.deconstruct()
++    print(f"Deconstructed path: {kwargs.get('path')}")
++    print(f"Deconstructed path type: {type(kwargs.get('path'))}")
++    print("Deconstruction successful!")
++except Exception as e:
++    print(f"Deconstruction failed: {e}")
++
++# Test 3: Try to create a migration
++print("\nTest 3: Creating a migration")
++try:
++    # Create a model state
++    model_state = ModelState.from_model(LocalFiles)
++    
++    # Create a project state
++    project_state = ProjectState()
++    project_state.add_model(model_state)
++    
++    # Create an empty state to compare against
++    empty_state = ProjectState()
++    
++    # Try to detect changes
++    detector = MigrationAutodetector(empty_state, project_state)
++    changes = detector.changes
++    
++    print("Migration changes detected:")
++    for app_label, app_changes in changes.items():
++        print(f"  App: {app_label}")
++        for migration in app_changes:
++            print(f"    Migration: {migration}")
++            for operation in migration.operations:
++                print(f"      Operation: {operation}")
++                if hasattr(operation, 'field'):
++                    print(f"      Field path: {operation.field.path}")
++                    print(f"      Field path type: {type(operation.field.path)}")
++    
++    print("Migration creation successful!")
++    
++except Exception as e:
++    print(f"Migration creation failed: {e}")
++    import traceback
++    traceback.print_exc()
++
++# Test 4: Test the form field
++print("\nTest 4: Testing form field")
++try:
++    form_field = field.formfield()
++    print(f"Form field path: {form_field.path}")
++    print(f"Form field path type: {type(form_field.path)}")
++    print("Form field creation successful!")
++except Exception as e:
++    print(f"Form field creation failed: {e}")
++    import traceback
++    traceback.print_exc()
+\ No newline at end of file

@@ -1,0 +1,234 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index f32ce64629..e5837a515e 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1587,7 +1587,7 @@ class DurationField(Field):
+     empty_strings_allowed = False
+     default_error_messages = {
+         'invalid': _("'%(value)s' value has an invalid format. It must be in "
+-                     "[DD] [HH:[MM:]]ss[.uuuuuu] format.")
++                     "[DD] [[HH:]MM:]ss[.uuuuuu] format.")
+     }
+     description = _("Duration")
+ 
+@@ -1631,10 +1631,13 @@ class DurationField(Field):
+         return '' if val is None else duration_string(val)
+ 
+     def formfield(self, **kwargs):
+-        return super().formfield(**{
++        defaults = {
+             'form_class': forms.DurationField,
+-            **kwargs,
+-        })
++        }
++        if not self.help_text and 'help_text' not in kwargs:
++            defaults['help_text'] = _('Format: [DD] [[HH:]MM:]ss[.uuuuuu]')
++        defaults.update(kwargs)
++        return super().formfield(**defaults)
+ 
+ 
+ class EmailField(CharField):
+diff --git a/test_duration_format.py b/test_duration_format.py
+new file mode 100644
+index 0000000000..89ac0757af
+--- /dev/null
++++ b/test_duration_format.py
+@@ -0,0 +1,40 @@
++#!/usr/bin/env python
++"""Test script to understand DurationField parsing behavior"""
++
++import sys
++sys.path.insert(0, '/testbed')
++
++from django.utils.dateparse import parse_duration
++
++# Test cases from the PR description
++test_cases = [
++    "14:00",      # Should parse as 14 minutes (00:14:00)
++    "1:14:00",    # Should parse as 1 hour 14 minutes
++    "14:00.123",  # Should parse as 14 minutes 0.123 seconds
++    "1:14",       # Should this parse? According to PR, minutes should be optional
++    "14",         # Should this parse? According to PR, seconds are mandatory
++]
++
++print("Testing parse_duration function:")
++print("-" * 50)
++
++for test_case in test_cases:
++    try:
++        result = parse_duration(test_case)
++        print(f"'{test_case}' -> {result}")
++    except (ValueError, TypeError) as e:
++        print(f"'{test_case}' -> ERROR: {e}")
++
++print("\n" + "=" * 50)
++print("Testing the regex pattern directly:")
++print("-" * 50)
++
++import re
++from django.utils.dateparse import standard_duration_re
++
++for test_case in test_cases:
++    match = standard_duration_re.match(test_case)
++    if match:
++        print(f"'{test_case}' -> MATCH: {match.groupdict()}")
++    else:
++        print(f"'{test_case}' -> NO MATCH")
+\ No newline at end of file
+diff --git a/test_error_message.py b/test_error_message.py
+new file mode 100644
+index 0000000000..12246e2309
+--- /dev/null
++++ b/test_error_message.py
+@@ -0,0 +1,47 @@
++#!/usr/bin/env python
++"""Test script to reproduce the DurationField error message"""
++
++import sys
++sys.path.insert(0, '/testbed')
++
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django.conf.global_settings')
++
++import django
++from django.conf import settings
++if not settings.configured:
++    settings.configure()
++django.setup()
++
++from django.db import models
++from django.core.exceptions import ValidationError
++
++# Create a simple model with DurationField
++class TestModel(models.Model):
++    duration = models.DurationField()
++    
++    class Meta:
++        app_label = 'test'
++
++# Test the error message
++test = TestModel()
++
++# Test with invalid duration format
++try:
++    test.duration = "invalid"
++    test.full_clean()
++except ValidationError as e:
++    print("Current error message:")
++    print(e.message_dict['duration'][0])
++    print()
++
++# Also test the forms DurationField
++from django import forms
++
++class TestForm(forms.Form):
++    duration = forms.DurationField()
++
++form = TestForm({'duration': 'invalid'})
++if not form.is_valid():
++    print("Forms DurationField error message:")
++    print(form.errors['duration'][0])
+\ No newline at end of file
+diff --git a/test_help_text.py b/test_help_text.py
+new file mode 100644
+index 0000000000..729ecf1151
+--- /dev/null
++++ b/test_help_text.py
+@@ -0,0 +1,44 @@
++#!/usr/bin/env python
++"""Test script to check DurationField help_text"""
++
++import sys
++sys.path.insert(0, '/testbed')
++
++import os
++os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django.conf.global_settings')
++
++import django
++from django.conf import settings
++if not settings.configured:
++    settings.configure()
++django.setup()
++
++from django.db import models
++
++# Create a simple model with DurationField
++class TestModel(models.Model):
++    duration = models.DurationField()
++    
++    class Meta:
++        app_label = 'test'
++
++# Test the help_text
++field = TestModel._meta.get_field('duration')
++form_field = field.formfield()
++
++print("DurationField help_text:")
++print(form_field.help_text)
++print()
++
++# Also test with a custom help_text to ensure it can be overridden
++class TestModel2(models.Model):
++    duration = models.DurationField(help_text='Custom help text')
++    
++    class Meta:
++        app_label = 'test2'
++
++field2 = TestModel2._meta.get_field('duration')
++form_field2 = field2.formfield()
++
++print("DurationField with custom help_text:")
++print(form_field2.help_text)
+\ No newline at end of file
+diff --git a/test_hours_minutes.py b/test_hours_minutes.py
+new file mode 100644
+index 0000000000..1283a80c38
+--- /dev/null
++++ b/test_hours_minutes.py
+@@ -0,0 +1,45 @@
++#!/usr/bin/env python
++"""Test specific hours:minutes format"""
++
++import sys
++sys.path.insert(0, '/testbed')
++
++from django.utils.dateparse import parse_duration
++import re
++from django.utils.dateparse import standard_duration_re
++
++# Test hours:minutes format specifically
++test_cases = [
++    "1:14",       # hours:minutes - should this work?
++    "1:14:00",    # hours:minutes:seconds - we know this works
++    "14:00",      # minutes:seconds - we know this works
++]
++
++print("Testing hours:minutes format:")
++print("-" * 50)
++
++for test_case in test_cases:
++    match = standard_duration_re.match(test_case)
++    if match:
++        print(f"'{test_case}' -> MATCH: {match.groupdict()}")
++        try:
++            result = parse_duration(test_case)
++            print(f"           -> PARSED: {result}")
++        except (ValueError, TypeError) as e:
++            print(f"           -> ERROR: {e}")
++    else:
++        print(f"'{test_case}' -> NO MATCH")
++
++print("\n" + "=" * 50)
++print("Testing regex pattern explanation:")
++print("-" * 50)
++
++# Let's understand the regex better
++pattern = standard_duration_re.pattern
++print("Regex pattern:")
++print(pattern)
++print()
++
++# The key part is: ((?:(?P<hours>\d+):)(?=\d+:\d+))?
++# This means: optional hours part, but if present, it must be followed by \d+:\d+
++# So hours can only appear if followed by minutes:seconds
+\ No newline at end of file

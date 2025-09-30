@@ -1,0 +1,116 @@
+diff --git a/django/forms/models.py b/django/forms/models.py
+index 5dcf923c12..bc7e6959e7 100644
+--- a/django/forms/models.py
++++ b/django/forms/models.py
+@@ -1171,6 +1171,9 @@ class ModelChoiceIteratorValue:
+             other = other.value
+         return self.value == other
+ 
++    def __hash__(self):
++        return hash(self.value)
++
+ 
+ class ModelChoiceIterator:
+     def __init__(self, field):
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..5535afac50
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,95 @@
++#!/usr/bin/env python
++"""Script to reproduce the ModelChoiceIteratorValue hashability issue"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django import forms
++from django.db import models
++
++# Create a simple model for testing
++class TestModel(models.Model):
++    name = models.CharField(max_length=100)
++    
++    class Meta:
++        app_label = 'test'
++
++# Create a form with ModelChoiceField
++class TestForm(forms.Form):
++    test_field = forms.ModelChoiceField(queryset=TestModel.objects.all())
++
++def test_hashability():
++    """Test the hashability issue with ModelChoiceIteratorValue"""
++    
++    # Create some test instances
++    obj1 = TestModel(id=1, name="Object 1")
++    obj2 = TestModel(id=2, name="Object 2")
++    
++    # Create a ModelChoiceIteratorValue (this is what gets passed to create_option)
++    from django.forms.models import ModelChoiceIteratorValue
++    
++    value1 = ModelChoiceIteratorValue(obj1.pk, obj1)
++    value2 = ModelChoiceIteratorValue(obj2.pk, obj2)
++    
++    print("Testing ModelChoiceIteratorValue hashability...")
++    print(f"value1: {value1}")
++    print(f"value2: {value2}")
++    
++    # Test 1: Check if objects are equal
++    print("\n1. Testing equality:")
++    print(f"value1 == value1.value: {value1 == value1.value}")  # Should be True
++    print(f"value1 == 1: {value1 == 1}")  # Should be True
++    print(f"value1 == value2: {value1 == value2}")  # Should be False
++    
++    # Test 2: Try to use as dictionary key (this should fail)
++    print("\n2. Testing dictionary usage:")
++    show_fields = {1: ['first_name', 'last_name']}
++    
++    try:
++        result = value1 in show_fields
++        print(f"value1 in show_fields: {result}")
++    except TypeError as e:
++        print(f"ERROR: {e}")
++        print("This is the bug we need to fix!")
++    
++    # Test 3: Try to hash the object (this should fail)
++    print("\n3. Testing hash function:")
++    try:
++        hash_val = hash(value1)
++        print(f"hash(value1): {hash_val}")
++    except TypeError as e:
++        print(f"ERROR: {e}")
++        print("This confirms the object is not hashable!")
++    
++    # Test 4: Test with array (this should work)
++    print("\n4. Testing with array (should work):")
++    allowed_values = [1, 2]
++    try:
++        result = value1 in allowed_values
++        print(f"value1 in allowed_values: {result}")
++    except TypeError as e:
++        print(f"ERROR: {e}")
++
++if __name__ == "__main__":
++    test_hashability()
+\ No newline at end of file

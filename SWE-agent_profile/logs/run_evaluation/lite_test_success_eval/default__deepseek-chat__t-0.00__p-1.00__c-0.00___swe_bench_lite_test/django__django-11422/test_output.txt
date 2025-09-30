@@ -1,0 +1,435 @@
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z '' ']'
++++ export CONDA_SHLVL=0
++++ CONDA_SHLVL=0
++++ '[' -n '' ']'
++++++ dirname /opt/miniconda3/bin/conda
+++++ dirname /opt/miniconda3/bin
++++ PATH=/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export PATH
++++ '[' -z '' ']'
++++ PS1=
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1=
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=1
++++ CONDA_SHLVL=1
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''2'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_1='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=2
+++ CONDA_SHLVL=2
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_1=/opt/miniconda3
+++ CONDA_PREFIX_1=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ cd /testbed
++ sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen
++ locale-gen
+Generating locales (this might take a while)...
+  en_US.UTF-8... done
+Generation complete.
++ export LANG=en_US.UTF-8
++ LANG=en_US.UTF-8
++ export LANGUAGE=en_US:en
++ LANGUAGE=en_US:en
++ export LC_ALL=en_US.UTF-8
++ LC_ALL=en_US.UTF-8
++ git config --global --add safe.directory /testbed
++ cd /testbed
++ git status
+On branch main
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   django/utils/autoreload.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	test_autoreload.py
+	test_autoreload_fix.py
+	test_autoreload_integration.py
+	test_autoreload_real.py
+	test_fix.py
+	test_manage_py_fix.py
+	test_runserver_scenario.py
+
+no changes added to commit (use "git add" and/or "git commit -a")
++ git show
+commit df46b329e0900e9e4dc1d60816c1dce6dfc1094e
+Author: Simon Charette <charettes@users.noreply.github.com>
+Date:   Mon May 27 16:00:14 2019 -0400
+
+    Refs #30485 -- Avoided unnecessary instance checks in urlencode.
+    
+    Given doseq defaults to False it should avoid an unnecessary instance
+    check in most cases.
+
+diff --git a/django/utils/http.py b/django/utils/http.py
+index d77bfb5992..b6a78184a6 100644
+--- a/django/utils/http.py
++++ b/django/utils/http.py
+@@ -116,7 +116,7 @@ def urlencode(query, doseq=False):
+                 'Cannot encode None in a query string. Did you mean to pass '
+                 'an empty string or omit the value?'
+             )
+-        elif isinstance(value, (str, bytes)) or not doseq:
++        elif not doseq or isinstance(value, (str, bytes)):
+             query_val = value
+         else:
+             try:
++ git -c core.fileMode=false diff df46b329e0900e9e4dc1d60816c1dce6dfc1094e
+diff --git a/django/utils/autoreload.py b/django/utils/autoreload.py
+index 7ca0d68fae..aa12389233 100644
+--- a/django/utils/autoreload.py
++++ b/django/utils/autoreload.py
+@@ -579,6 +579,10 @@ def run_with_reloader(main_func, *args, **kwargs):
+     try:
+         if os.environ.get(DJANGO_AUTORELOAD_ENV) == 'true':
+             reloader = get_reloader()
++            # Add the main script (manage.py) to the watched files
++            main_script = Path(sys.argv[0]).resolve()
++            if main_script.exists() and hasattr(reloader, 'watch_file'):
++                reloader.watch_file(main_script)
+             logger.info('Watching for file changes with %s', reloader.__class__.__name__)
+             start_django(reloader, main_func, *args, **kwargs)
+         else:
++ source /opt/miniconda3/bin/activate
+++ _CONDA_ROOT=/opt/miniconda3
+++ . /opt/miniconda3/etc/profile.d/conda.sh
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ '[' -z x ']'
+++ conda activate
+++ local cmd=activate
+++ case "$cmd" in
+++ __conda_activate activate
+++ '[' -n '' ']'
+++ local ask_conda
++++ PS1='(testbed) '
++++ __conda_exe shell.posix activate
++++ /opt/miniconda3/bin/conda shell.posix activate
+++ ask_conda='PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ eval 'PS1='\''(base) '\''
+export PATH='\''/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3'\''
+export CONDA_SHLVL='\''3'\''
+export CONDA_DEFAULT_ENV='\''base'\''
+export CONDA_PROMPT_MODIFIER='\''(base) '\''
+export CONDA_PREFIX_2='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++++ PS1='(base) '
++++ export PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ PATH=/opt/miniconda3/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
++++ export CONDA_PREFIX=/opt/miniconda3
++++ CONDA_PREFIX=/opt/miniconda3
++++ export CONDA_SHLVL=3
++++ CONDA_SHLVL=3
++++ export CONDA_DEFAULT_ENV=base
++++ CONDA_DEFAULT_ENV=base
++++ export 'CONDA_PROMPT_MODIFIER=(base) '
++++ CONDA_PROMPT_MODIFIER='(base) '
++++ export CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ CONDA_PREFIX_2=/opt/miniconda3/envs/testbed
++++ export CONDA_EXE=/opt/miniconda3/bin/conda
++++ CONDA_EXE=/opt/miniconda3/bin/conda
++++ export _CE_M=
++++ _CE_M=
++++ export _CE_CONDA=
++++ _CE_CONDA=
++++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ __conda_hashr
+++ '[' -n '' ']'
+++ '[' -n '' ']'
+++ hash -r
++ conda activate testbed
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate testbed
++ '[' -n '' ']'
++ local ask_conda
+++ PS1='(base) '
+++ __conda_exe shell.posix activate testbed
+++ /opt/miniconda3/bin/conda shell.posix activate testbed
++ ask_conda='PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
++ eval 'PS1='\''(testbed) '\''
+export PATH='\''/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'\''
+export CONDA_PREFIX='\''/opt/miniconda3/envs/testbed'\''
+export CONDA_SHLVL='\''4'\''
+export CONDA_DEFAULT_ENV='\''testbed'\''
+export CONDA_PROMPT_MODIFIER='\''(testbed) '\''
+export CONDA_PREFIX_3='\''/opt/miniconda3'\''
+export CONDA_EXE='\''/opt/miniconda3/bin/conda'\''
+export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+export CONDA_PYTHON_EXE='\''/opt/miniconda3/bin/python'\'''
+++ PS1='(testbed) '
+++ export PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ PATH=/opt/miniconda3/envs/testbed/bin:/opt/miniconda3/condabin:/opt/miniconda3/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+++ export CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ CONDA_PREFIX=/opt/miniconda3/envs/testbed
+++ export CONDA_SHLVL=4
+++ CONDA_SHLVL=4
+++ export CONDA_DEFAULT_ENV=testbed
+++ CONDA_DEFAULT_ENV=testbed
+++ export 'CONDA_PROMPT_MODIFIER=(testbed) '
+++ CONDA_PROMPT_MODIFIER='(testbed) '
+++ export CONDA_PREFIX_3=/opt/miniconda3
+++ CONDA_PREFIX_3=/opt/miniconda3
+++ export CONDA_EXE=/opt/miniconda3/bin/conda
+++ CONDA_EXE=/opt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/opt/miniconda3/bin/python
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ python -m pip install -e .
+Obtaining file:///testbed
+Requirement already satisfied: pytz in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from Django==3.0.dev20190527200014) (2024.2)
+Requirement already satisfied: sqlparse in /opt/miniconda3/envs/testbed/lib/python3.6/site-packages (from Django==3.0.dev20190527200014) (0.4.4)
+Installing collected packages: Django
+  Attempting uninstall: Django
+    Found existing installation: Django 3.0.dev20190527200014
+    Uninstalling Django-3.0.dev20190527200014:
+      Successfully uninstalled Django-3.0.dev20190527200014
+  Running setup.py develop for Django
+Successfully installed Django-3.0.dev20190527200014
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
++ git checkout df46b329e0900e9e4dc1d60816c1dce6dfc1094e tests/utils_tests/test_autoreload.py
+Updated 0 paths from 25ad840be2
++ git apply -v -
+Checking patch tests/utils_tests/test_autoreload.py...
+Applied patch tests/utils_tests/test_autoreload.py cleanly.
++ : '>>>>> Start Test Output'
++ ./tests/runtests.py --verbosity 2 --settings=test_sqlite --parallel 1 utils_tests.test_autoreload
+test_run_loop_catches_stopiteration (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_run_loop_stop_and_return (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_wait_for_apps_ready_checks_for_exception (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_wait_for_apps_ready_without_exception (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_watch_files_with_recursive_glob (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_watch_with_glob (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_watch_with_single_file (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_watch_without_absolute (utils_tests.test_autoreload.BaseReloaderTests) ... ok
+test_watchman_available (utils_tests.test_autoreload.GetReloaderTests) ... ok
+test_watchman_unavailable (utils_tests.test_autoreload.GetReloaderTests) ... ok
+test_manage_py (utils_tests.test_autoreload.RestartWithReloaderTests) ... ok
+test_python_m_django (utils_tests.test_autoreload.RestartWithReloaderTests) ... ok
+test_calls_start_django (utils_tests.test_autoreload.RunWithReloaderTests) ... ok
+test_calls_sys_exit (utils_tests.test_autoreload.RunWithReloaderTests) ... ok
+test_swallows_keyboard_interrupt (utils_tests.test_autoreload.RunWithReloaderTests) ... ok
+test_check_errors_called (utils_tests.test_autoreload.StartDjangoTests) ... ok
+test_echo_on_called (utils_tests.test_autoreload.StartDjangoTests) ... ok
+test_starts_thread_with_args (utils_tests.test_autoreload.StartDjangoTests) ... ok
+test_watchman_becomes_unavailable (utils_tests.test_autoreload.StartDjangoTests) ... ok
+test_file (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_glob (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_glob_recursive (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_multiple_globs (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_multiple_recursive_globs (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_nested_glob_recursive (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_overlapping_glob_recursive (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_overlapping_globs (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_snapshot_files_ignores_missing_files (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_snapshot_files_updates (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_snapshot_files_with_duplicates (utils_tests.test_autoreload.StatReloaderTests) ... ok
+test_mutates_error_files (utils_tests.test_autoreload.TestCheckErrors) ... ok
+test_common_roots (utils_tests.test_autoreload.TestCommonRoots) ... ok
+test_bytecode_conversion_to_source (utils_tests.test_autoreload.TestIterModulesAndFiles)
+.pyc and .pyo files are included in the files list. ... ok
+test_check_errors (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_check_errors_catches_all_exceptions (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_file_added (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_main_module_is_resolved (utils_tests.test_autoreload.TestIterModulesAndFiles) ... FAIL
+test_module_without_spec (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_paths_are_pathlib_instances (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_weakref_in_sys_module (utils_tests.test_autoreload.TestIterModulesAndFiles)
+iter_all_python_module_file() ignores weakref modules. ... ok
+test_zip_reload (utils_tests.test_autoreload.TestIterModulesAndFiles) ... ok
+test_no_exception (utils_tests.test_autoreload.TestRaiseLastException) ... ok
+test_raises_exception (utils_tests.test_autoreload.TestRaiseLastException) ... ok
+test_sys_paths_absolute (utils_tests.test_autoreload.TestSysPathDirectories) ... ok
+test_sys_paths_directories (utils_tests.test_autoreload.TestSysPathDirectories) ... ok
+test_sys_paths_non_existing (utils_tests.test_autoreload.TestSysPathDirectories) ... ok
+test_sys_paths_with_directories (utils_tests.test_autoreload.TestSysPathDirectories) ... ok
+test_check_availability (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_check_availability_lower_version (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_check_server_status (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_check_server_status_raises_error (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_file (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_glob (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_glob_recursive (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_multiple_globs (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_multiple_recursive_globs (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_nested_glob_recursive (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_overlapping_glob_recursive (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_overlapping_globs (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_pywatchman_not_available (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_setting_timeout_from_environment_variable (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_update_watches_raises_exceptions (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watch_glob_ignores_non_existing_directories_two_levels (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watch_glob_multiple_patterns (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watch_glob_uses_existing_parent_directories (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watched_roots_contains_directory_globs (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watched_roots_contains_files (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+test_watched_roots_contains_sys_path (utils_tests.test_autoreload.WatchmanReloaderTests) ... skipped 'Watchman unavailable: Cannot connect to the watchman service.'
+
+======================================================================
+FAIL: test_main_module_is_resolved (utils_tests.test_autoreload.TestIterModulesAndFiles)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/testbed/tests/utils_tests/test_autoreload.py", line 137, in test_main_module_is_resolved
+    self.assertFileFound(Path(main_module.__file__))
+  File "/testbed/tests/utils_tests/test_autoreload.py", line 40, in assertFileFound
+    self.assertIn(resolved_filename, list(autoreload.iter_all_python_module_files()))
+AssertionError: PosixPath('/testbed/tests/runtests.py') not found in [PosixPath('/testbed/django/apps/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sqlite3/__init__.py'), PosixPath('/testbed/django/core/handlers/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/statistics.py'), PosixPath('/testbed/django/utils/datastructures.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_pickle.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/db/models/fields/related.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/hmac.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/encodings/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/queue.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/threading.py'), PosixPath('/testbed/django/contrib/sessions/middleware.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sre_constants.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/policy.py'), PosixPath('/testbed/django/db/models/functions/comparison.py'), PosixPath('/testbed/django/utils/autoreload.py'), PosixPath('/testbed/django/core/signals.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/copy.py'), PosixPath('/testbed/django/db/backends/ddl_references.py'), PosixPath('/testbed/django/test/utils.py'), PosixPath('/testbed/django/contrib/auth/hashers.py'), PosixPath('/testbed/django/utils/translation/reloader.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/importlib/util.py'), PosixPath('/testbed/django/urls/base.py'), PosixPath('/testbed/django/contrib/admin/models.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/result.py'), PosixPath('/testbed/django/middleware/csrf.py'), PosixPath('/testbed/django/contrib/contenttypes/__init__.py'), PosixPath('/testbed/django/db/__init__.py'), PosixPath('/testbed/django/urls/resolvers.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/encoders.py'), PosixPath('/testbed/django/db/backends/base/operations.py'), PosixPath('/testbed/django/db/models/sql/datastructures.py'), PosixPath('/testbed/django/core/mail/message.py'), PosixPath('/testbed/django/db/models/functions/mixins.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/filters.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/urllib/request.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/quoprimime.py'), PosixPath('/testbed/django/core/mail/backends/base.py'), PosixPath('/testbed/django/utils/deprecation.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/py_compile.py'), PosixPath('/testbed/django/db/models/fields/mixins.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/nodes.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/signals.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/wsgiref/simple_server.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/compat.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/genericpath.py'), PosixPath('/testbed/django/db/models/functions/datetime.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/socket.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/_identifier.py'), PosixPath('/testbed/django/core/checks/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/distutils/version.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sre_compile.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/contextlib.py'), PosixPath('/testbed/django/db/backends/sqlite3/features.py'), PosixPath('/testbed/django/db/migrations/__init__.py'), PosixPath('/testbed/django/db/models/query.py'), PosixPath('/testbed/django/contrib/auth/base_user.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/array.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/pickle.py'), PosixPath('/testbed/django/db/models/query_utils.py'), PosixPath('/testbed/django/utils/ipv6.py'), PosixPath('/testbed/django/contrib/sites/apps.py'), PosixPath('/testbed/django/dispatch/__init__.py'), PosixPath('/testbed/django/core/files/move.py'), PosixPath('/testbed/django/utils/decorators.py'), PosixPath('/testbed/django/conf/urls/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ctypes/util.py'), PosixPath('/testbed/django/views/defaults.py'), PosixPath('/testbed/django/utils/timesince.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/html/entities.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/message.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ctypes/_endian.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/bz2.py'), PosixPath('/testbed/tests/utils_tests/models.py'), PosixPath('/testbed/django/test/client.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/tests.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ssl.py'), PosixPath('/testbed/django/db/backends/sqlite3/client.py'), PosixPath('/testbed/django/template/backends/__init__.py'), PosixPath('/testbed/django/core/servers/basehttp.py'), PosixPath('/testbed/django/contrib/admin/templatetags/log.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/fnmatch.py'), PosixPath('/testbed/django/test/testcases.py'), PosixPath('/testbed/django/views/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/right_margin.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/bisect.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/token.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/header.py'), PosixPath('/testbed/django/core/management/commands/check.py'), PosixPath('/testbed/django/db/models/functions/window.py'), PosixPath('/testbed/django/db/backends/base/creation.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/errors.py'), PosixPath('/testbed/django/db/migrations/operations/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/logging/config.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_markupbase.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_collections_abc.py'), PosixPath('/testbed/django/core/checks/security/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/engine/grouping.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/parser.py'), PosixPath('/testbed/django/contrib/sessions/base_session.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/textwrap.py'), PosixPath('/testbed/django/utils/module_loading.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_bz2.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/string.py'), PosixPath('/testbed/django/db/migrations/operations/fields.py'), PosixPath('/testbed/django/db/backends/base/validation.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_sha3.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/template/backends/base.py'), PosixPath('/testbed/django/utils/lorem_ipsum.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/charset.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/load.py'), PosixPath('/testbed/django/db/models/sql/query.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/loader.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_hashlib.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/utils/__init__.py'), PosixPath('/testbed/django/contrib/admin/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/getpass.py'), PosixPath('/testbed/django/db/models/manager.py'), PosixPath('/testbed/django/contrib/sessions/apps.py'), PosixPath('/testbed/django/core/validators.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytz/lazy.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/copyreg.py'), PosixPath('/testbed/django/contrib/admin/__init__.py'), PosixPath('/testbed/django/contrib/staticfiles/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytz/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/zlib.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/binascii.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/html/__init__.py'), PosixPath('/testbed/django/utils/html.py'), PosixPath('/testbed/django/db/models/expressions.py'), PosixPath('/testbed/django/middleware/__init__.py'), PosixPath('/testbed/django/contrib/sessions/models.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/NodeFilter.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/json/scanner.py'), PosixPath('/testbed/django/core/files/uploadhandler.py'), PosixPath('/testbed/django/contrib/sessions/exceptions.py'), PosixPath('/testbed/django/core/mail/__init__.py'), PosixPath('/testbed/django/db/migrations/state.py'), PosixPath('/testbed/django/utils/duration.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/encodings/latin_1.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/engine/statement_splitter.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_compression.py'), PosixPath('/testbed/django/contrib/admin/templatetags/base.py'), PosixPath('/testbed/django/core/files/images.py'), PosixPath('/testbed/django/db/models/deletion.py'), PosixPath('/testbed/django/http/request.py'), PosixPath('/testbed/django/http/response.py'), PosixPath('/testbed/django/db/backends/sqlite3/__init__.py'), PosixPath('/testbed/django/forms/widgets.py'), PosixPath('/testbed/django/templatetags/tz.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/feedparser.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/stat.py'), PosixPath('/testbed/django/forms/boundfield.py'), PosixPath('/testbed/django/db/models/fields/related_descriptors.py'), PosixPath('/testbed/django/core/checks/urls.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/multiprocessing/context.py'), PosixPath('/testbed/django/db/models/indexes.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/parser.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/opcode.py'), PosixPath('/testbed/django/core/checks/templates.py'), PosixPath('/testbed/django/core/mail/backends/locmem.py'), PosixPath('/testbed/django/contrib/admin/templatetags/admin_list.py'), PosixPath('/testbed/tests/urls.py'), PosixPath('/testbed/tests/utils_tests/utils.py'), PosixPath('/testbed/django/db/backends/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/capabilities.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/tblib/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/traceback.py'), PosixPath('/testbed/django/conf/__init__.py'), PosixPath('/testbed/django/utils/version.py'), PosixPath('/testbed/django/core/checks/model_checks.py'), PosixPath('/testbed/django/utils/inspect.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/visitor.py'), PosixPath('/testbed/django/urls/conf.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/selectors.py'), PosixPath('/testbed/django/http/cookie.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/wsgiref/headers.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/keyword.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/mimetypes.py'), PosixPath('/testbed/django/contrib/staticfiles/utils.py'), PosixPath('/testbed/django/db/models/sql/constants.py'), PosixPath('/testbed/django/utils/encoding.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/cli.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/grp.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/db/backends/sqlite3/base.py'), PosixPath('/testbed/django/core/serializers/python.py'), PosixPath('/testbed/django/apps/config.py'), PosixPath('/testbed/django/contrib/auth/__init__.py'), PosixPath('/testbed/django/db/models/sql/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/domreg.py'), PosixPath('/testbed/django/contrib/admin/templatetags/__init__.py'), PosixPath('/testbed/django/template/engine.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/exceptions.py'), PosixPath('/testbed/django/contrib/admin/options.py'), PosixPath('/testbed/django/contrib/auth/validators.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/distutils/__init__.py'), PosixPath('/testbed/django/middleware/cache.py'), PosixPath('/testbed/django/__init__.py'), PosixPath('/testbed/django/core/cache/backends/__init__.py'), PosixPath('/testbed/django/utils/deconstruct.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/bccache.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/base64.py'), PosixPath('/testbed/django/contrib/contenttypes/fields.py'), PosixPath('/testbed/django/core/checks/security/csrf.py'), PosixPath('/testbed/django/templatetags/l10n.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_bisect.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/db/models/functions/math.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/case.py'), PosixPath('/testbed/django/contrib/auth/checks.py'), PosixPath('/testbed/django/utils/functional.py'), PosixPath('/testbed/django/db/models/sql/subqueries.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/engine/filter_stack.py'), PosixPath('/testbed/django/utils/timezone.py'), PosixPath('/testbed/django/utils/translation/trans_real.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/numbers.py'), PosixPath('/testbed/django/contrib/messages/constants.py'), PosixPath('/testbed/django/core/files/uploadedfile.py'), PosixPath('/testbed/django/core/wsgi.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_heapq.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/operator.py'), PosixPath('/testbed/django/contrib/staticfiles/checks.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/types.py'), PosixPath('/testbed/django/template/backends/django.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/re.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_posixsubprocess.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/utils/tree.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_json.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/utils/dateparse.py'), PosixPath('/testbed/django/utils/translation/__init__.py'), PosixPath('/testbed/tests/test_sqlite.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/json/encoder.py'), PosixPath('/testbed/django/test/selenium.py'), PosixPath('/testbed/django/db/backends/base/base.py'), PosixPath('/testbed/django/contrib/admin/templatetags/admin_urls.py'), PosixPath('/testbed/django/forms/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/wsgiref/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/html/parser.py'), PosixPath('/testbed/django/utils/regex_helper.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/urllib/error.py'), PosixPath('/testbed/django/core/files/locks.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/enum.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/base64mime.py'), PosixPath('/testbed/django/views/generic/base.py'), PosixPath('/testbed/django/db/backends/base/schema.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/reprlib.py'), PosixPath('/testbed/django/db/models/signals.py'), PosixPath('/testbed/django/db/models/lookups.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/tblib/cpython.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_datetime.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/main.py'), PosixPath('/testbed/django/utils/text.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/__init__.py'), PosixPath('/testbed/django/db/backends/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/importlib/machinery.py'), PosixPath('/testbed/django/test/signals.py'), PosixPath('/testbed/django/contrib/admin/filters.py'), PosixPath('/testbed/django/forms/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/abc.py'), PosixPath('/testbed/django/db/migrations/operations/base.py'), PosixPath('/testbed/django/db/models/functions/__init__.py'), PosixPath('/testbed/tests/utils_tests/test_autoreload.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytz/exceptions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/urllib/parse.py'), PosixPath('/testbed/django/core/handlers/exception.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/_parseaddr.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/posixpath.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/aligned_indent.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/http/cookies.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_weakrefset.py'), PosixPath('/testbed/django/views/generic/detail.py'), PosixPath('/testbed/django/views/generic/dates.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/socketserver.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/gzip.py'), PosixPath('/testbed/django/core/serializers/json.py'), PosixPath('/testbed/django/core/mail/utils.py'), PosixPath('/testbed/django/forms/formsets.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/multiprocessing/reduction.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/_header_value_parser.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/calendar.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/__init__.py'), PosixPath('/testbed/django/contrib/admin/apps.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/select.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/tests/utils_tests/__init__.py'), PosixPath('/testbed/django/core/management/sql.py'), PosixPath('/testbed/django/db/backends/signals.py'), PosixPath('/testbed/django/core/mail/backends/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/__init__.py'), PosixPath('/testbed/django/test/runner.py'), PosixPath('/testbed/django/core/servers/__init__.py'), PosixPath('/testbed/django/middleware/common.py'), PosixPath('/testbed/django/db/models/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/util.py'), PosixPath('/testbed/django/contrib/auth/backends.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/warnings.py'), PosixPath('/testbed/django/templatetags/__init__.py'), PosixPath('/testbed/django/utils/dates.py'), PosixPath('/testbed/django/db/backends/base/features.py'), PosixPath('/testbed/django/views/i18n.py'), PosixPath('/testbed/django/contrib/contenttypes/apps.py'), PosixPath('/testbed/django/template/loader.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/multipart.py'), PosixPath('/testbed/django/contrib/admin/exceptions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/others.py'), PosixPath('/testbed/django/core/cache/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytz/tzinfo.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/urllib/response.py'), PosixPath('/testbed/django/core/paginator.py'), PosixPath('/testbed/django/http/__init__.py'), PosixPath('/testbed/django/utils/numberformat.py'), PosixPath('/testbed/django/core/handlers/wsgi.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/text.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/bser.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/fractions.py'), PosixPath('/testbed/django/contrib/auth/middleware.py'), PosixPath('/testbed/django/utils/dateformat.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/utils.py'), PosixPath('/testbed/django/utils/cache.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/json/decoder.py'), PosixPath('/testbed/django/forms/renderers.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/unicodedata.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/importlib/__init__.py'), PosixPath('/testbed/django/contrib/sessions/backends/base.py'), PosixPath('/testbed/django/db/backends/sqlite3/creation.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/defaults.py'), PosixPath('/testbed/django/template/smartif.py'), PosixPath('/testbed/django/utils/crypto.py'), PosixPath('/testbed/django/contrib/contenttypes/models.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/markupsafe/_speedups.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/contrib/sites/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/minicompat.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ast.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/logging/__init__.py'), PosixPath('/testbed/django/core/checks/caches.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_lzma.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/cgi.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/xmlbuilder.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/suite.py'), PosixPath('/testbed/django/core/handlers/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/wsgiref/util.py'), PosixPath('/testbed/django/db/migrations/operations/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/idtracking.py'), PosixPath('/testbed/django/utils/formats.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/markupsafe/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_ctypes.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/db/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_ssl.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/struct.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/http/__init__.py'), PosixPath('/testbed/django/template/response.py'), PosixPath('/testbed/django/db/migrations/exceptions.py'), PosixPath('/testbed/django/template/defaulttags.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/argparse.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_sitebuiltins.py'), PosixPath('/testbed/django/forms/forms.py'), PosixPath('/testbed/django/views/static.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/message.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/iterators.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/http/server.py'), PosixPath('/testbed/django/utils/log.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_bootlocale.py'), PosixPath('/testbed/django/test/html.py'), PosixPath('/testbed/django/db/models/aggregates.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/sql.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_compat_pickle.py'), PosixPath('/testbed/django/core/management/color.py'), PosixPath('/testbed/django/contrib/staticfiles/apps.py'), PosixPath('/testbed/django/template/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_random.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/gettext.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/json/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/tokens.py'), PosixPath('/testbed/django/db/transaction.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/encodings/aliases.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/engine/__init__.py'), PosixPath('/testbed/django/core/checks/translation.py'), PosixPath('/testbed/django/contrib/sessions/backends/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_socket.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/compiler.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/uu.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/hashlib.py'), PosixPath('/testbed/django/db/models/fields/files.py'), PosixPath('/testbed/django/contrib/admin/helpers.py'), PosixPath('/testbed/django/template/backends/jinja2.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/pathlib.py'), PosixPath('/testbed/django/utils/datetime_safe.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/async_utils.py'), PosixPath('/testbed/django/contrib/sessions/__init__.py'), PosixPath('/testbed/django/core/checks/registry.py'), PosixPath('/testbed/django/contrib/messages/apps.py'), PosixPath('/testbed/django/core/files/temp.py'), PosixPath('/testbed/django/utils/safestring.py'), PosixPath('/testbed/django/db/models/base.py'), PosixPath('/testbed/django/conf/global_settings.py'), PosixPath('/testbed/django/db/models/fields/related_lookups.py'), PosixPath('/testbed/django/core/__init__.py'), PosixPath('/testbed/django/db/models/fields/reverse_related.py'), PosixPath('/testbed/django/conf/locale/__init__.py'), PosixPath('/testbed/django/core/cache/utils.py'), PosixPath('/testbed/django/contrib/auth/password_validation.py'), PosixPath('/testbed/django/db/models/functions/text.py'), PosixPath('/testbed/django/db/models/fields/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/io.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/locale.py'), PosixPath('/testbed/django/contrib/admin/views/main.py'), PosixPath('/testbed/django/contrib/auth/models.py'), PosixPath('/testbed/django/contrib/admin/actions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/codecs.py'), PosixPath('/testbed/django/urls/__init__.py'), PosixPath('/testbed/django/db/models/sql/where.py'), PosixPath('/testbed/django/contrib/staticfiles/finders.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_opcode.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/contrib/admin/sites.py'), PosixPath('/testbed/django/urls/exceptions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/mock.py'), PosixPath('/testbed/django/utils/http.py'), PosixPath('/testbed/django/contrib/auth/signals.py'), PosixPath('/testbed/django/apps/registry.py'), PosixPath('/testbed/django/contrib/admin/templatetags/admin_modify.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/lexer.py'), PosixPath('/testbed/django/utils/topological_sort.py'), PosixPath('/testbed/django/db/backends/sqlite3/introspection.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/subprocess.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/collections/abc.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ctypes/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/pprint.py'), PosixPath('/testbed/django/contrib/admin/widgets.py'), PosixPath('/testbed/django/__main__.py'), PosixPath('/testbed/django/core/files/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lzma.py'), PosixPath('/testbed/django/db/models/constraints.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ipaddress.py'), PosixPath('/testbed/django/db/migrations/operations/special.py'), PosixPath('/testbed/django/test/__init__.py'), PosixPath('/testbed/django/contrib/auth/apps.py'), PosixPath('/testbed/django/views/generic/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/generator.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/urllib/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sre_parse.py'), PosixPath('/testbed/django/core/checks/database.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/pkgutil.py'), PosixPath('/testbed/django/core/files/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/logging/handlers.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/reindent.py'), PosixPath('/testbed/django/template/context.py'), PosixPath('/testbed/django/dispatch/dispatcher.py'), PosixPath('/testbed/django/urls/converters.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_sqlite3.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/contrib/admin/checks.py'), PosixPath('/testbed/django/templatetags/static.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/headerregistry.py'), PosixPath('/testbed/django/contrib/sites/management.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/inspect.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/heapq.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/tblib/pickling_support.py'), PosixPath('/testbed/django/views/decorators/csrf.py'), PosixPath('/testbed/django/utils/_os.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_decimal.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/template/__init__.py'), PosixPath('/testbed/django/views/generic/list.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/importlib/abc.py'), PosixPath('/testbed/django/contrib/auth/management/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/runtime.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/platform.py'), PosixPath('/testbed/django/contrib/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/datetime.py'), PosixPath('/testbed/django/db/backends/base/introspection.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/minidom.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/lexer.py'), PosixPath('/testbed/django/core/files/storage.py'), PosixPath('/testbed/django/core/exceptions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/__init__.py'), PosixPath('/testbed/django/core/serializers/base.py'), PosixPath('/testbed/django/utils/hashable.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/tokenize.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/termios.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/shutil.py'), PosixPath('/testbed/django/utils/baseconv.py'), PosixPath('/testbed/django/db/models/options.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/environment.py'), PosixPath('/testbed/django/db/backends/base/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/formatter.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_struct.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/contrib/admin/decorators.py'), PosixPath('/testbed/django/db/backends/base/client.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/_policybase.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/xml/dom/__init__.py'), PosixPath('/testbed/django/core/management/base.py'), PosixPath('/testbed/django/template/defaultfilters.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/os.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/optimizer.py'), PosixPath('/testbed/django/db/migrations/migration.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/exceptions.py'), PosixPath('/testbed/django/core/checks/security/sessions.py'), PosixPath('/testbed/django/core/signing.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/unittest/runner.py'), PosixPath('/testbed/django/templatetags/i18n.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/multiprocessing/process.py'), PosixPath('/testbed/django/views/decorators/cache.py'), PosixPath('/testbed/django/core/serializers/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/math.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/filters/output.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/tokens.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/secrets.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/linecache.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pytz/tzfile.py'), PosixPath('/testbed/django/utils/itercompat.py'), PosixPath('/testbed/django/views/decorators/__init__.py'), PosixPath('/testbed/django/contrib/messages/middleware.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sysconfig.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/dis.py'), PosixPath('/testbed/django/core/cache/backends/base.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/decimal.py'), PosixPath('/testbed/django/db/migrations/operations/models.py'), PosixPath('/testbed/django/db/models/fields/proxy.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/utils.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/signal.py'), PosixPath('/testbed/django/forms/fields.py'), PosixPath('/testbed/django/contrib/sites/models.py'), PosixPath('/testbed/django/db/backends/sqlite3/operations.py'), PosixPath('/testbed/django/templatetags/cache.py'), PosixPath('/testbed/django/contrib/contenttypes/management/__init__.py'), PosixPath('/testbed/django/urls/utils.py'), PosixPath('/testbed/django/template/library.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/_encoded_words.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/quopri.py'), PosixPath('/testbed/django/db/backends/sqlite3/schema.py'), PosixPath('/testbed/django/db/models/utils.py'), PosixPath('/testbed/django/core/checks/messages.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/functools.py'), PosixPath('/testbed/django/core/files/__init__.py'), PosixPath('/testbed/django/contrib/admin/views/autocomplete.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/difflib.py'), PosixPath('/testbed/django/forms/models.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/sqlite3/dbapi2.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/zipfile.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/uuid.py'), PosixPath('/testbed/django/db/models/constants.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/tempfile.py'), PosixPath('/testbed/django/core/management/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/_sysconfigdata_m_linux_x86_64-linux-gnu.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/multiprocessing/__init__.py'), PosixPath('/testbed/django/contrib/messages/api.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/random.py'), PosixPath('/testbed/django/template/exceptions.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/pywatchman/encoding.py'), PosixPath('/testbed/django/contrib/messages/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/typing.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/fcntl.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/ntpath.py'), PosixPath('/testbed/django/contrib/contenttypes/checks.py'), PosixPath('/testbed/django/views/generic/edit.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/__future__.py'), PosixPath('/testbed/django/contrib/admin/views/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/mime/nonmultipart.py'), PosixPath('/testbed/django/http/multipartparser.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/jinja2/loaders.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/http/client.py'), PosixPath('/testbed/django/views/debug.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/wsgiref/handlers.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/collections/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/weakref.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/email/contentmanager.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/encodings/utf_8.py'), PosixPath('/testbed/django/core/checks/security/__init__.py'), PosixPath('/testbed/django/contrib/messages/storage/__init__.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/site-packages/sqlparse/keywords.py'), PosixPath('/testbed/django/template/utils.py'), PosixPath('/testbed/django/template/loader_tags.py'), PosixPath('/opt/miniconda3/envs/testbed/lib/python3.6/lib-dynload/_blake2.cpython-36m-x86_64-linux-gnu.so'), PosixPath('/testbed/django/utils/termcolors.py')]
+Testing against Django installed in '/testbed/django'
+Importing application utils_tests
+Skipping setup of unused database(s): default, other.
+System check identified no issues (0 silenced).
+
+----------------------------------------------------------------------
+Ran 68 tests in 0.450s
+
+FAILED (failures=1, skipped=21)
++ : '>>>>> End Test Output'
++ git checkout df46b329e0900e9e4dc1d60816c1dce6dfc1094e tests/utils_tests/test_autoreload.py
+Updated 1 path from 25ad840be2

@@ -1,0 +1,227 @@
+diff --git a/test_choices.py b/test_choices.py
+new file mode 100644
+index 0000000000..7958fa44fb
+--- /dev/null
++++ b/test_choices.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python
++"""Test script to reproduce the issue with get_FOO_display and inherited choices."""
++
++import sys
++sys.path.insert(0, '/testbed')
++
++# Let's directly test the field's flatchoices property
++from django.db.models.fields import CharField
++
++# Create a field with choices like in the PR description
++field = CharField(max_length=254, choices=[("A", "output1"), ("B", "output2")])
++print("Original field flatchoices:", field.flatchoices)
++
++# Now let's see what happens when we change the choices
++field.choices = [("A", "output1"), ("B", "output2"), ("C", "output3")]
++print("Updated field flatchoices:", field.flatchoices)
++
++# Let's test the _get_FIELD_display method directly
++from django.db.models.base import Model
++
++class TestModel:
++    def __init__(self):
++        self.field_foo = None
++
++# Create a test instance
++test_instance = TestModel()
++
++# Test the _get_FIELD_display method
++field.choices = [("A", "output1"), ("B", "output2"), ("C", "output3")]
++
++# Test value "A"
++test_instance.field_foo = "A"
++result_a = Model._get_FIELD_display(test_instance, field)
++print(f"Value 'A': {result_a} (expected: 'output1')")
++
++# Test value "B"
++test_instance.field_foo = "B"
++result_b = Model._get_FIELD_display(test_instance, field)
++print(f"Value 'B': {result_b} (expected: 'output2')")
++
++# Test value "C"
++test_instance.field_foo = "C"
++result_c = Model._get_FIELD_display(test_instance, field)
++print(f"Value 'C': {result_c} (expected: 'output3')")
++
++if result_c == "C":
++    print("\n❌ ISSUE CONFIRMED: _get_FIELD_display() returns 'C' instead of 'output3' for value 'C'")
++else:
++    print("\n✅ Issue appears to be fixed")
+\ No newline at end of file
+diff --git a/test_issue.py b/test_issue.py
+new file mode 100644
+index 0000000000..6d6c7f8cab
+--- /dev/null
++++ b/test_issue.py
+@@ -0,0 +1,79 @@
++#!/usr/bin/env python
++"""Test script to reproduce the issue with get_FOO_display and inherited choices."""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++            'test_app',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Create the models as described in the PR
++class A(models.Model):
++    foo_choice = [("A", "output1"), ("B", "output2")]
++    field_foo = models.CharField(max_length=254, choices=foo_choice)
++    
++    class Meta:
++        abstract = True
++        app_label = 'test_app'
++
++class B(A):
++    foo_choice = [("A", "output1"), ("B", "output2"), ("C", "output3")]
++    field_foo = models.CharField(max_length=254, choices=foo_choice)
++    
++    class Meta:
++        app_label = 'test_app'
++
++# Test the issue
++print("Testing get_field_foo_display with inherited choices...")
++
++# Create an instance of B
++b_instance = B()
++
++# Test with value "A"
++b_instance.field_foo = "A"
++result_a = b_instance.get_field_foo_display()
++print(f"Value 'A': {result_a} (expected: 'output1')")
++
++# Test with value "B"
++b_instance.field_foo = "B"
++result_b = b_instance.get_field_foo_display()
++print(f"Value 'B': {result_b} (expected: 'output2')")
++
++# Test with value "C" - this is the problematic case
++b_instance.field_foo = "C"
++result_c = b_instance.get_field_foo_display()
++print(f"Value 'C': {result_c} (expected: 'output3')")
++
++# Check if the issue exists
++if result_c == "C":
++    print("\n❌ ISSUE CONFIRMED: get_field_foo_display() returns 'C' instead of 'output3' for value 'C'")
++else:
++    print("\n✅ Issue appears to be fixed")
++
++# Let's also check the flatchoices property
++print("\nChecking flatchoices property:")
++print(f"B.field_foo.flatchoices: {B._meta.get_field('field_foo').flatchoices}")
++
++# Let's check what choices are actually being used
++print(f"\nB.field_foo.choices: {B._meta.get_field('field_foo').choices}")
+\ No newline at end of file
+diff --git a/test_simple.py b/test_simple.py
+new file mode 100644
+index 0000000000..e202f39dc5
+--- /dev/null
++++ b/test_simple.py
+@@ -0,0 +1,78 @@
++#!/usr/bin/env python
++"""Simple test script to reproduce the issue with get_FOO_display and inherited choices."""
++
++import os
++import sys
++
++# Add the testbed directory to Python path
++sys.path.insert(0, '/testbed')
++
++import django
++from django.conf import settings
++
++# Configure Django settings
++if not settings.configured:
++    settings.configure(
++        DEBUG=True,
++        DATABASES={
++            'default': {
++                'ENGINE': 'django.db.backends.sqlite3',
++                'NAME': ':memory:',
++            }
++        },
++        INSTALLED_APPS=[
++            'django.contrib.contenttypes',
++            'django.contrib.auth',
++        ],
++        USE_TZ=True,
++    )
++
++django.setup()
++
++from django.db import models
++
++# Create the models as described in the PR
++class A(models.Model):
++    foo_choice = [("A", "output1"), ("B", "output2")]
++    field_foo = models.CharField(max_length=254, choices=foo_choice)
++    
++    class Meta:
++        abstract = True
++
++class B(A):
++    foo_choice = [("A", "output1"), ("B", "output2"), ("C", "output3")]
++    field_foo = models.CharField(max_length=254, choices=foo_choice)
++
++# Test the issue
++print("Testing get_field_foo_display with inherited choices...")
++
++# Create an instance of B
++b_instance = B()
++
++# Test with value "A"
++b_instance.field_foo = "A"
++result_a = b_instance.get_field_foo_display()
++print(f"Value 'A': {result_a} (expected: 'output1')")
++
++# Test with value "B"
++b_instance.field_foo = "B"
++result_b = b_instance.get_field_foo_display()
++print(f"Value 'B': {result_b} (expected: 'output2')")
++
++# Test with value "C" - this is the problematic case
++b_instance.field_foo = "C"
++result_c = b_instance.get_field_foo_display()
++print(f"Value 'C': {result_c} (expected: 'output3')")
++
++# Check if the issue exists
++if result_c == "C":
++    print("\n❌ ISSUE CONFIRMED: get_field_foo_display() returns 'C' instead of 'output3' for value 'C'")
++else:
++    print("\n✅ Issue appears to be fixed")
++
++# Let's also check the flatchoices property
++print("\nChecking flatchoices property:")
++print(f"B.field_foo.flatchoices: {B._meta.get_field('field_foo').flatchoices}")
++
++# Let's check what choices are actually being used
++print(f"\nB.field_foo.choices: {B._meta.get_field('field_foo').choices}")
+\ No newline at end of file

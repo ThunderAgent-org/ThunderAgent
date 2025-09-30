@@ -1,0 +1,71 @@
+diff --git a/django/utils/html.py b/django/utils/html.py
+index d0bc97be80..bd998b890f 100644
+--- a/django/utils/html.py
++++ b/django/utils/html.py
+@@ -59,7 +59,7 @@ _json_script_escapes = {
+ }
+ 
+ 
+-def json_script(value, element_id=None):
++def json_script(value, element_id=None, encoder=None):
+     """
+     Escape all the HTML/XML special characters with their unicode escapes, so
+     value is safe to be output anywhere except for inside a tag attribute. Wrap
+@@ -67,7 +67,10 @@ def json_script(value, element_id=None):
+     """
+     from django.core.serializers.json import DjangoJSONEncoder
+ 
+-    json_str = json.dumps(value, cls=DjangoJSONEncoder).translate(_json_script_escapes)
++    if encoder is None:
++        encoder = DjangoJSONEncoder
++
++    json_str = json.dumps(value, cls=encoder).translate(_json_script_escapes)
+     if element_id:
+         template = '<script id="{}" type="application/json">{}</script>'
+         args = (element_id, mark_safe(json_str))
+diff --git a/test_json_script_encoder.py b/test_json_script_encoder.py
+new file mode 100644
+index 0000000000..3d153a7f0c
+--- /dev/null
++++ b/test_json_script_encoder.py
+@@ -0,0 +1,39 @@
++#!/usr/bin/env python
++"""Test script to verify json_script function with custom encoder"""
++
++import json
++from django.utils.html import json_script
++from django.core.serializers.json import DjangoJSONEncoder
++
++# Test 1: Current behavior (default DjangoJSONEncoder)
++print("Test 1: Current behavior with default encoder")
++data = {"test": "value", "number": 42}
++result = json_script(data, "test-id")
++print(f"Result: {result}")
++
++# Test 2: Try to use a custom encoder (this should fail with current implementation)
++print("\nTest 2: Attempt to use custom encoder (should fail)")
++
++class CustomJSONEncoder(json.JSONEncoder):
++    def default(self, o):
++        if isinstance(o, str):
++            return f"CUSTOM_{o}"
++        return super().default(o)
++
++try:
++    # This should fail since the current implementation doesn't accept encoder parameter
++    result = json_script(data, "test-id", encoder=CustomJSONEncoder)
++    print(f"Result: {result}")
++except TypeError as e:
++    print(f"Expected error: {e}")
++
++# Test 3: Verify that DjangoJSONEncoder handles special types correctly
++print("\nTest 3: DjangoJSONEncoder with special types")
++import datetime
++special_data = {
++    "date": datetime.date(2023, 1, 1),
++    "datetime": datetime.datetime(2023, 1, 1, 12, 0, 0),
++    "decimal": 3.14,
++}
++result = json_script(special_data, "special-data")
++print(f"Result: {result}")
+\ No newline at end of file

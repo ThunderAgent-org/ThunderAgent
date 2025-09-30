@@ -1,0 +1,205 @@
+diff --git a/django/core/checks/translation.py b/django/core/checks/translation.py
+index 138ed07ff8..e951231a8d 100644
+--- a/django/core/checks/translation.py
++++ b/django/core/checks/translation.py
+@@ -56,6 +56,17 @@ def check_setting_languages_bidi(app_configs, **kwargs):
+ def check_language_settings_consistent(app_configs, **kwargs):
+     """Error if language settings are not consistent with each other."""
+     available_tags = {i for i, _ in settings.LANGUAGES} | {'en-us'}
+-    if settings.LANGUAGE_CODE not in available_tags:
+-        return [E004]
+-    return []
++    language_code = settings.LANGUAGE_CODE
++    
++    # Check if the language code is directly available
++    if language_code in available_tags:
++        return []
++    
++    # If not, check if a base language is available (e.g., 'de' for 'de-at')
++    if '-' in language_code:
++        base_language = language_code.split('-')[0]
++        if base_language in available_tags:
++            return []
++    
++    # Neither the exact language nor its base language is available
++    return [E004]
+diff --git a/reproduce_issue.py b/reproduce_issue.py
+new file mode 100644
+index 0000000000..5b6e3079c1
+--- /dev/null
++++ b/reproduce_issue.py
+@@ -0,0 +1,86 @@
++#!/usr/bin/env python
++"""Script to reproduce the translation.E004 issue with sublanguages"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++settings.configure(
++    DEBUG=True,
++    LANGUAGE_CODE='de-at',  # This should work if 'de' is available
++    LANGUAGES=[
++        ('de', 'German'),
++        ('en', 'English'),
++        ('es', 'Spanish'),
++    ],
++    INSTALLED_APPS=[
++        'django.contrib.contenttypes',
++        'django.contrib.auth',
++    ],
++    USE_I18N=True,
++)
++
++django.setup()
++
++from django.core.checks import run_checks
++from django.core.checks.translation import check_language_settings_consistent
++
++print("Testing LANGUAGE_CODE = 'de-at' with LANGUAGES containing 'de' but not 'de-at'")
++print("LANGUAGE_CODE:", settings.LANGUAGE_CODE)
++print("LANGUAGES:", settings.LANGUAGES)
++print()
++
++# Run the specific check
++result = check_language_settings_consistent(None)
++print("Check result:", result)
++
++if result:
++    print("ERROR: translation.E004 was raised incorrectly!")
++    print("According to Django docs, 'de-at' should fall back to 'de'")
++else:
++    print("SUCCESS: No error raised - this is the expected behavior")
++
++print("\n" + "="*60)
++print("Testing with 'es-ar' which is known to work:")
++
++# Test with es-ar which should work - manually change settings
++original_language_code = settings.LANGUAGE_CODE
++original_languages = settings.LANGUAGES
++
++settings.LANGUAGE_CODE = 'es-ar'
++settings.LANGUAGES = [('es', 'Spanish')]
++
++result = check_language_settings_consistent(None)
++print("LANGUAGE_CODE:", 'es-ar')
++print("LANGUAGES:", [('es', 'Spanish')])
++print("Check result:", result)
++if result:
++    print("ERROR: translation.E004 was raised for es-ar!")
++else:
++    print("SUCCESS: No error raised for es-ar")
++
++# Restore original settings
++settings.LANGUAGE_CODE = original_language_code
++settings.LANGUAGES = original_languages
++
++print("\n" + "="*60)
++print("Testing with a language that truly doesn't exist:")
++
++# Test with a language that truly doesn't exist
++settings.LANGUAGE_CODE = 'xx'
++settings.LANGUAGES = [('de', 'German')]
++
++result = check_language_settings_consistent(None)
++print("LANGUAGE_CODE:", 'xx')
++print("LANGUAGES:", [('de', 'German')])
++print("Check result:", result)
++if result:
++    print("EXPECTED: translation.E004 was raised correctly for 'xx'")
++else:
++    print("ERROR: No error raised for 'xx' - this should have failed!")
++
++# Restore original settings
++settings.LANGUAGE_CODE = original_language_code
++settings.LANGUAGES = original_languages
+\ No newline at end of file
+diff --git a/test_edge_cases.py b/test_edge_cases.py
+new file mode 100644
+index 0000000000..11de13656e
+--- /dev/null
++++ b/test_edge_cases.py
+@@ -0,0 +1,80 @@
++#!/usr/bin/env python
++"""Test edge cases for the translation.E004 fix"""
++
++import os
++import sys
++import django
++from django.conf import settings
++
++# Configure Django settings
++settings.configure(
++    DEBUG=True,
++    LANGUAGE_CODE='de',  # Default
++    LANGUAGES=[
++        ('de', 'German'),
++        ('en', 'English'),
++        ('es', 'Spanish'),
++        ('fr', 'French'),
++    ],
++    INSTALLED_APPS=[
++        'django.contrib.contenttypes',
++        'django.contrib.auth',
++    ],
++    USE_I18N=True,
++)
++
++django.setup()
++
++from django.core.checks.translation import check_language_settings_consistent
++
++def test_case(language_code, languages, should_pass, description):
++    """Test a specific case"""
++    original_language_code = settings.LANGUAGE_CODE
++    original_languages = settings.LANGUAGES
++    
++    settings.LANGUAGE_CODE = language_code
++    settings.LANGUAGES = languages
++    
++    result = check_language_settings_consistent(None)
++    passed = len(result) == 0
++    
++    # Restore original settings
++    settings.LANGUAGE_CODE = original_language_code
++    settings.LANGUAGES = original_languages
++    
++    status = "PASS" if passed == should_pass else "FAIL"
++    print(f"{status}: {description}")
++    print(f"  LANGUAGE_CODE: {language_code}")
++    print(f"  LANGUAGES: {languages}")
++    print(f"  Expected: {'PASS' if should_pass else 'FAIL'}, Got: {'PASS' if passed else 'FAIL'}")
++    if passed != should_pass:
++        print(f"  ERROR: Result was {result}")
++    print()
++
++print("Testing edge cases for translation.E004 fix")
++print("=" * 60)
++
++# Test cases
++test_cases = [
++    # (language_code, languages, should_pass, description)
++    ('de-at', [('de', 'German')], True, "Sublanguage with base language available"),
++    ('de-at', [('en', 'English')], False, "Sublanguage without base language available"),
++    ('de', [('de', 'German')], True, "Exact match"),
++    ('de', [('de-at', 'Austrian German')], False, "Base language not available, only sublanguage"),
++    ('en-us', [('en', 'English')], True, "en-us should fall back to en"),
++    ('en-us', [], True, "en-us should always be available (special case)"),
++    ('es-ar', [('es', 'Spanish')], True, "es-ar should fall back to es"),
++    ('fr-ca', [('fr', 'French')], True, "fr-ca should fall back to fr"),
++    ('zh-hans', [('zh', 'Chinese')], True, "zh-hans should fall back to zh"),
++    ('ca-es-valencia', [('ca', 'Catalan')], True, "Complex sublanguage should fall back to base"),
++    ('xx-yy', [('de', 'German')], False, "Unknown sublanguage without base"),
++    ('xx', [('de', 'German')], False, "Unknown base language"),
++    ('de-de', [('de', 'German')], True, "de-de should fall back to de"),
++    ('de-at', [('de-at', 'Austrian German')], True, "Exact sublanguage match"),
++]
++
++for language_code, languages, should_pass, description in test_cases:
++    test_case(language_code, languages, should_pass, description)
++
++print("=" * 60)
++print("Testing complete!")
+\ No newline at end of file
