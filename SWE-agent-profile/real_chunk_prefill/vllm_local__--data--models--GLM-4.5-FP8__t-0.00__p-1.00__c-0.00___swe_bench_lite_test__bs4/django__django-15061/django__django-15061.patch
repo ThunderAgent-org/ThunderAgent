@@ -1,0 +1,9 @@
+diff --git a/django/db/backends/sqlite3/features.py b/django/db/backends/sqlite3/features.py
+index ff3e3f47a9..14622080c4 100644
+--- a/django/db/backends/sqlite3/features.py
++++ b/django/db/backends/sqlite3/features.py
+@@ -124,3 +124,4 @@ class DatabaseFeatures(BaseDatabaseFeatures):
+         return Database.sqlite_version_info >= (3, 35)
+ 
+     can_return_rows_from_bulk_insert = property(operator.attrgetter('can_return_columns_from_insert'))
++    supports_expression_indexes = False

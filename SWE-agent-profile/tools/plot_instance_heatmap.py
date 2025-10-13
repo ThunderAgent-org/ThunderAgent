@@ -12,6 +12,8 @@ from typing import Iterable, NamedTuple
 
 import matplotlib.pyplot as plt  # type: ignore[import-not-found]
 from matplotlib.lines import Line2D  # type: ignore[import-not-found]
+import matplotlib.ticker as mticker  # type: ignore[import-not-found]
+from matplotlib.ticker import FormatStrFormatter  # type: ignore[import-not-found]
 
 from aggregate_stage_timings import (  # type: ignore[import-untyped]
     COLORS,
@@ -132,14 +134,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--time-start",
         type=float,
-        default=0.0,
-        help="Start of the time window (seconds from run start, default: %(default)s).",
+        default=None,
+        help="Start of the time window as an absolute timestamp (epoch seconds). If omitted, uses the run start.",
     )
     parser.add_argument(
         "--time-end",
         type=float,
         default=None,
-        help="End of the time window (seconds from run start). If omitted, use the full duration.",
+        help="End of the time window as an absolute timestamp (epoch seconds). If omitted, use the run end.",
     )
     parser.add_argument(
         "--output",
@@ -232,9 +234,15 @@ def _load_raw_segments(inst_dir: Path, verbose: bool = False) -> list[RawSegment
     return raw_segments
 
 
-def _load_step_ratios(inst_dir: Path, verbose: bool = False) -> dict[int, tuple[float, float]]:
+def _load_step_ratios(inst_dir: Path, verbose: bool = False) -> dict[int, float]:
+    """
+    Load per-step first-chunk timestamps from prefix_cache_metrics.jsonl.
+
+    Returns a mapping step -> first_chunk_timestamp (absolute epoch seconds).
+    If the file or a record is missing/invalid, that step will be omitted.
+    """
     path = inst_dir / "prefix_cache_metrics.jsonl"
-    ratios: dict[int, tuple[float, float]] = {}
+    timestamps: dict[int, float] = {}
     try:
         with path.open("r", encoding="utf-8") as fh:
             for line in fh:
@@ -251,45 +259,44 @@ def _load_step_ratios(inst_dir: Path, verbose: bool = False) -> dict[int, tuple[
                     step = int(record.get("step", 0) or 0)
                 except (TypeError, ValueError):
                     continue
-                prefill_delta = float(record.get("prefill_time_sum_delta", 0.0))
-                decode_delta = float(record.get("decode_time_sum_delta", 0.0))
-                total_delta = prefill_delta + decode_delta
-                if total_delta > 0:
-                    prefill_share = max(0.0, min(1.0, prefill_delta / total_delta))
-                    decode_share = max(0.0, min(1.0, decode_delta / total_delta))
-                else:
-                    prefill_share = 0.0
-                    decode_share = 1.0
-                ratios[step] = (prefill_share, decode_share)
+                ts = record.get("first_chunk_timestamp")
+                try:
+                    tsf = float(ts)
+                except (TypeError, ValueError):
+                    # missing or invalid timestamp -> skip
+                    continue
+                timestamps[step] = tsf
     except FileNotFoundError:
         if verbose:
             print(f"[warn] Missing prefix cache metrics: {path}")
-    return ratios
+    return timestamps
 
 
 def _group_segments_by_worker(
     raw_segments: Iterable[RawSegment],
-    ratio_lookup: dict[tuple[str, int], tuple[float, float]],
+    ratio_lookup: dict[tuple[str, int], float],
     time_start: float,
     time_end: float | None,
 ) -> tuple[dict[str, list[Segment]], float]:
     segments = list(raw_segments)
     if not segments:
         return {}, 0.0
-    reference = min(seg.start for seg in segments)
-    run_end = max(seg.end for seg in segments) - reference
-    window_start = max(0.0, time_start)
+    # use absolute timestamps (epoch seconds) throughout
+    run_start = min(seg.start for seg in segments)
+    run_end = max(seg.end for seg in segments)
+    window_start = time_start if time_start is not None else run_start
     window_end = time_end if time_end is not None else run_end
-    window_end = max(window_start, min(window_end, run_end))
+    if window_end < window_start:
+        window_end = window_start
 
     grouped: dict[str, list[Segment]] = defaultdict(list)
     for seg in segments:
-        start_rel = seg.start - reference
-        end_rel = seg.end - reference
-        if end_rel <= window_start or start_rel >= window_end:
+        start_abs = seg.start
+        end_abs = seg.end
+        if end_abs <= window_start or start_abs >= window_end:
             continue
-        clip_start = max(start_rel, window_start)
-        clip_end = min(end_rel, window_end)
+        clip_start = max(start_abs, window_start)
+        clip_end = min(end_abs, window_end)
         duration = clip_end - clip_start
         if duration <= 0:
             continue
@@ -319,26 +326,42 @@ def _group_segments_by_worker(
     )
 
     def split_segments(segs: list[Segment]) -> list[Segment]:
+        """
+        Split any llm_decode segment into llm_prefill + llm_decode using the
+        absolute first_chunk_timestamp stored in ratio_lookup keyed by
+        (instance, step). The reference variable (run-relative zero) is used to
+        convert absolute timestamps to the same time base as segments.
+
+        If no timestamp exists for a segment, or the boundary lies outside the
+        segment, the segment is left unchanged.
+        """
         expanded: list[Segment] = []
         for seg in segs:
             if seg.stage == "llm_decode":
-                pref_share, dec_share = ratio_lookup.get((seg.instance, seg.step), (0.0, 1.0))
-                pref_share = max(0.0, min(1.0, pref_share))
-                dec_share = max(0.0, min(1.0, dec_share))
-                total_share = pref_share + dec_share
-                if total_share > 0:
-                    pref_share /= total_share
-                    dec_share /= total_share
-                else:
-                    pref_share = 0.0
-                    dec_share = 1.0
-                prefill_duration = seg.duration * pref_share
-                decode_duration = seg.duration - prefill_duration
-                current_start = seg.start
+                first_chunk_ts = ratio_lookup.get((seg.instance, seg.step))
+                if first_chunk_ts is None:
+                    # no timestamp -> treat entire segment as decode
+                    expanded.append(seg)
+                    continue
+
+                # boundary is absolute timestamp (epoch seconds)
+                boundary = float(first_chunk_ts)
+
+                seg_start = seg.start
+                seg_end = seg.start + seg.duration
+
+                # If boundary is outside the segment (with tiny epsilon), don't split
+                if boundary <= seg_start + 1e-12 or boundary >= seg_end - 1e-12:
+                    expanded.append(seg)
+                    continue
+
+                prefill_duration = boundary - seg_start
+                decode_duration = seg_end - boundary
+
                 if prefill_duration > 1e-9:
                     expanded.append(
                         Segment(
-                            start=current_start,
+                            start=seg_start,
                             duration=prefill_duration,
                             stage="llm_prefill",
                             instance=seg.instance,
@@ -346,11 +369,10 @@ def _group_segments_by_worker(
                             attempt=seg.attempt,
                         )
                     )
-                    current_start += prefill_duration
                 if decode_duration > 1e-9:
                     expanded.append(
                         Segment(
-                            start=current_start,
+                            start=boundary,
                             duration=decode_duration,
                             stage="llm_decode",
                             instance=seg.instance,
@@ -389,12 +411,13 @@ def _collect_worker_rows(
                 print(f"[warn] No run directory found for batch size {batch_size}")
             continue
         raw_segments: list[RawSegment] = []
-        ratio_lookup: dict[tuple[str, int], tuple[float, float]] = {}
+        # ratio_lookup now maps (instance_name, step) -> first_chunk_timestamp (absolute seconds)
+        ratio_lookup: dict[tuple[str, int], float] = {}
         for inst_dir in gather_instances(run_dir):
             raw_segments.extend(_load_raw_segments(inst_dir, verbose=verbose))
-            ratios = _load_step_ratios(inst_dir, verbose=verbose)
-            for step, shares in ratios.items():
-                ratio_lookup[(inst_dir.name, step)] = shares
+            timestamps = _load_step_ratios(inst_dir, verbose=verbose)
+            for step, ts in timestamps.items():
+                ratio_lookup[(inst_dir.name, step)] = ts
         if not raw_segments:
             if verbose:
                 print(f"[warn] No stage segments found in {run_dir}")
@@ -441,16 +464,55 @@ def plot_worker_timelines(
                 linewidth=0.0,
             )
 
+    # Build y-axis labels: include the worker label and the list of instances
+    # that have segments in the visible window. Truncate long instance lists.
+    def _instances_for_row(row: WorkerRow, max_items: int = 5) -> str:
+        insts = sorted({seg.instance for seg in row.segments})
+        if not insts:
+            return ""
+        if len(insts) <= max_items:
+            return ", ".join(insts)
+        return ", ".join(insts[:max_items]) + ", ..."
+
+    ylabels = []
+    for row in rows:
+        inst_text = _instances_for_row(row)
+        if inst_text:
+            ylabels.append(f"{row.label}\n{inst_text}")
+        else:
+            ylabels.append(row.label)
+
     ax.set_yticks(y_positions)
-    ax.set_yticklabels([row.label for row in rows])
-    ax.set_xlabel("Time since run start (s)", fontsize=12)
+    ax.set_yticklabels(ylabels)
+    # use a slightly smaller font for long labels so they fit
+    for tick in ax.get_yticklabels():
+        tick.set_fontsize(10)
+    ax.set_xlabel("Time (epoch seconds)", fontsize=12)
     ax.set_ylabel("Workers grouped by batch size", fontsize=12)
     left = min_time
-    right = max_time * 1.02 if max_time else 1
-    if right <= left:
-        right = left + 1
+    # add small padding based on the visible range (not absolute value)
+    range_width = max_time - min_time
+    if range_width <= 0:
+        right = left + 1.0
+    else:
+        right = max_time + 0.02 * range_width
+
+    # Format x-axis ticks as integer epoch seconds (e.g., 1760189747)
+    try:
+        ax.xaxis.set_major_formatter(mticker.FormatStrFormatter('%d'))
+    except Exception:
+        # fallback: leave default formatting
+        pass
     ax.set_xlim(left, right)
     ax.set_title("Worker Stage Timelines", fontsize=14, pad=15)
+
+    # Force x-axis to show plain integer epoch seconds (no scientific notation)
+    try:
+        ax.xaxis.set_major_formatter(FormatStrFormatter("%.0f"))
+        ax.ticklabel_format(style='plain', axis='x', useOffset=False)
+    except Exception:
+        # If formatting fails for any backend, ignore and continue with defaults
+        pass
 
     legend_handles = [Line2D([0], [0], color=stage_palette.get(stage, "#999999"), lw=6) for stage in DISPLAY_STAGES]
     legend_labels = [stage.replace("_", " ").title() for stage in DISPLAY_STAGES]

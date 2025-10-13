@@ -1,0 +1,18 @@
+diff --git a/django/core/management/base.py b/django/core/management/base.py
+index d37d43d5c5..08ffb4efcd 100644
+--- a/django/core/management/base.py
++++ b/django/core/management/base.py
+@@ -130,6 +130,13 @@ class DjangoHelpFormatter(HelpFormatter):
+     def add_arguments(self, actions):
+         super().add_arguments(self._reordered_actions(actions))
+ 
++    def _fill_text(self, text, width, indent):
++        """
++        Override _fill_text to preserve the original formatting of the description.
++        This prevents newlines and indentation from being stripped.
++        """
++        return text
++
+ 
+ class OutputWrapper(TextIOBase):
+     """

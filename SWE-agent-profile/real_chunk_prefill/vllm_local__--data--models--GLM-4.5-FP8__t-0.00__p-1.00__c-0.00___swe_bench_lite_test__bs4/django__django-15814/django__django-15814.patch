@@ -1,0 +1,28 @@
+diff --git a/django/utils/html.py b/django/utils/html.py
+index d0bc97be80..5fe22981d4 100644
+--- a/django/utils/html.py
++++ b/django/utils/html.py
+@@ -59,15 +59,21 @@ _json_script_escapes = {
+ }
+ 
+ 
+-def json_script(value, element_id=None):
++def json_script(value, element_id=None, encoder=None):
+     """
+     Escape all the HTML/XML special characters with their unicode escapes, so
+     value is safe to be output anywhere except for inside a tag attribute. Wrap
+     the escaped JSON in a script tag.
++    
++    The encoder parameter specifies the JSON encoder class to use. If not provided,
++    DjangoJSONEncoder is used as the default.
+     """
+     from django.core.serializers.json import DjangoJSONEncoder
+ 
+-    json_str = json.dumps(value, cls=DjangoJSONEncoder).translate(_json_script_escapes)
++    if encoder is None:
++        encoder = DjangoJSONEncoder
++
++    json_str = json.dumps(value, cls=encoder).translate(_json_script_escapes)
+     if element_id:
+         template = '<script id="{}" type="application/json">{}</script>'
+         args = (element_id, mark_safe(json_str))

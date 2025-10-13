@@ -1,0 +1,97 @@
+diff --git a/django/db/migrations/serializer.py b/django/db/migrations/serializer.py
+index 38da1e6ecc..93a2f927f6 100644
+--- a/django/db/migrations/serializer.py
++++ b/django/db/migrations/serializer.py
+@@ -125,10 +125,50 @@ class EnumSerializer(BaseSerializer):
+     def serialize(self):
+         enum_class = self.value.__class__
+         module = enum_class.__module__
+-        return (
+-            "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
+-            {"import %s" % module},
+-        )
++        
++        # Check if this is a single enum value with a valid name
++        if self.value.name is not None:
++            return (
++                "%s.%s[%r]" % (module, enum_class.__qualname__, self.value.name),
++                {"import %s" % module},
++            )
++        else:
++            # This is a combination of enum flags, decompose it
++            members, not_covered = enum._decompose(enum_class, self.value.value)
++            
++            if not_covered != 0:
++                # If there are uncovered bits, we can't properly serialize this
++                raise ValueError(
++                    "Cannot serialize enum value %r: unable to decompose value %d" % 
++                    (self.value, self.value.value)
++                )
++            
++            # Check if any member has name=None (this can happen with zero values or other edge cases)
++            if any(member.name is None for member in members):
++                # If we have a zero value, we can't serialize it meaningfully
++                if self.value.value == 0:
++                    raise ValueError(
++                        "Cannot serialize enum value %r: zero-value enums cannot be serialized" % 
++                        (self.value,)
++                    )
++                else:
++                    # This shouldn't happen if not_covered is 0, but let's be safe
++                    raise ValueError(
++                        "Cannot serialize enum value %r: decomposed members include unnamed values" % 
++                        (self.value,)
++                    )
++            
++            # Generate the expression by combining the members with |
++            parts = []
++            for member in members:
++                parts.append("%s.%s[%r]" % (module, enum_class.__qualname__, member.name))
++            
++            if len(parts) == 1:
++                expression = parts[0]
++            else:
++                expression = " | ".join(parts)
++            
++            return expression, {"import %s" % module}
+ 
+ 
+ class FloatSerializer(BaseSimpleSerializer):
+diff --git a/tests/migrations/test_writer.py b/tests/migrations/test_writer.py
+index bad8775d4e..bca4039eaf 100644
+--- a/tests/migrations/test_writer.py
++++ b/tests/migrations/test_writer.py
+@@ -402,6 +402,18 @@ class WriterTests(SimpleTestCase):
+                 {"import migrations.test_writer"},
+             ),
+         )
++        # Test combined enum flags (the main fix for this PR)
++        combined_flags = IntFlagEnum.A | IntFlagEnum.B
++        self.assertSerializedResultEqual(
++            combined_flags,
++            (
++                "migrations.test_writer.IntFlagEnum['A'] | migrations.test_writer.IntFlagEnum['B']",
++                {"import migrations.test_writer"},
++            ),
++        )
++        # Test that combined flags can be round-tripped
++        self.assertSerializedEqual(combined_flags)
++        
+         field = models.IntegerField(
+             default=IntFlagEnum.A, choices=[(m.value, m) for m in IntFlagEnum]
+         )
+@@ -413,6 +425,14 @@ class WriterTests(SimpleTestCase):
+             "(2, migrations.test_writer.IntFlagEnum['B'])], "
+             "default=migrations.test_writer.IntFlagEnum['A'])",
+         )
++        
++        # Test field with combined enum flags as default
++        field_with_combined_default = models.IntegerField(default=combined_flags)
++        combined_string = MigrationWriter.serialize(field_with_combined_default)[0]
++        self.assertEqual(
++            combined_string,
++            "models.IntegerField(default=migrations.test_writer.IntFlagEnum['A'] | migrations.test_writer.IntFlagEnum['B'])",
++        )
+ 
+     def test_serialize_choices(self):
+         class TextChoices(models.TextChoices):

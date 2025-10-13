@@ -1,0 +1,17 @@
+diff --git a/django/db/models/fields/__init__.py b/django/db/models/fields/__init__.py
+index 2a98396cad..cd786e4853 100644
+--- a/django/db/models/fields/__init__.py
++++ b/django/db/models/fields/__init__.py
+@@ -1012,11 +1012,9 @@ class Field(RegisterLookupMixin):
+             "help_text": self.help_text,
+         }
+         if self.has_default():
++            defaults["initial"] = self.get_default()
+             if callable(self.default):
+-                defaults["initial"] = self.default
+                 defaults["show_hidden_initial"] = True
+-            else:
+-                defaults["initial"] = self.get_default()
+         if self.choices is not None:
+             # Fields with choices get special treatment.
+             include_blank = self.blank or not (

@@ -1,0 +1,16 @@
+diff --git a/django/core/checks/templates.py b/django/core/checks/templates.py
+index 5214276987..453081f18e 100644
+--- a/django/core/checks/templates.py
++++ b/django/core/checks/templates.py
+@@ -60,6 +60,11 @@ def check_for_template_tags_with_the_same_name(app_configs, **kwargs):
+     for module_name, module_path in get_template_tag_modules():
+         libraries[module_name].append(module_path)
+ 
++    # Deduplicate module paths for each library name
++    for library_name in libraries:
++        # Use dict.fromkeys() to preserve order while removing duplicates
++        libraries[library_name] = list(dict.fromkeys(libraries[library_name]))
++
+     for library_name, items in libraries.items():
+         if len(items) > 1:
+             errors.append(

@@ -1,0 +1,80 @@
+diff --git a/django/contrib/auth/management/__init__.py b/django/contrib/auth/management/__init__.py
+index 0b5a982617..718fb89144 100644
+--- a/django/contrib/auth/management/__init__.py
++++ b/django/contrib/auth/management/__init__.py
+@@ -95,11 +95,13 @@ def create_permissions(
+         .values_list("content_type", "codename")
+     )
+ 
+-    perms = [
+-        Permission(codename=codename, name=name, content_type=ct)
+-        for ct, (codename, name) in searched_perms
+-        if (ct.pk, codename) not in all_perms
+-    ]
++    perms = []
++    for ct, (codename, name) in searched_perms:
++        if (ct.pk, codename) not in all_perms:
++            perm = Permission(codename=codename, name=name)
++            perm._state.db = using
++            perm.content_type = ct
++            perms.append(perm)
+     Permission.objects.using(using).bulk_create(perms)
+     if verbosity >= 2:
+         for perm in perms:
+diff --git a/django/contrib/contenttypes/management/__init__.py b/django/contrib/contenttypes/management/__init__.py
+index 903b9ab1a0..15ce060fb6 100644
+--- a/django/contrib/contenttypes/management/__init__.py
++++ b/django/contrib/contenttypes/management/__init__.py
+@@ -93,7 +93,7 @@ def get_contenttypes_and_models(app_config, using, ContentType):
+     if not router.allow_migrate_model(using, ContentType):
+         return None, None
+ 
+-    ContentType.objects.clear_cache()
++    ContentType.objects.clear_cache(using)
+ 
+     content_types = {
+         ct.model: ct
+@@ -139,7 +139,17 @@ def create_contenttypes(
+         for (model_name, model) in app_models.items()
+         if model_name not in content_types
+     ]
+-    ContentType.objects.using(using).bulk_create(cts)
++    created_cts = ContentType.objects.using(using).bulk_create(cts)
++    
++    # Refresh the content types from the database to get their IDs
++    # and avoid subsequent database reads that don't respect the database parameter
++    if created_cts:
++        fresh_cts = ContentType.objects.using(using).filter(
++            app_label=app_label,
++            model__in=[ct.model for ct in created_cts]
++        )
++        content_types.update({ct.model: ct for ct in fresh_cts})
++    
+     if verbosity >= 2:
+-        for ct in cts:
++        for ct in created_cts:
+             print("Adding content type '%s | %s'" % (ct.app_label, ct.model))
+diff --git a/django/contrib/contenttypes/models.py b/django/contrib/contenttypes/models.py
+index 759a53ce67..39a80f5ef7 100644
+--- a/django/contrib/contenttypes/models.py
++++ b/django/contrib/contenttypes/models.py
+@@ -120,11 +120,17 @@ class ContentTypeManager(models.Manager):
+             self._add_to_cache(self.db, ct)
+         return ct
+ 
+-    def clear_cache(self):
++    def clear_cache(self, using=None):
+         """
+         Clear out the content-type cache.
+         """
+-        self._cache.clear()
++        if using is not None:
++            # Clear cache only for the specified database
++            if using in self._cache:
++                del self._cache[using]
++        else:
++            # Clear cache for all databases (original behavior)
++            self._cache.clear()
+ 
+     def _add_to_cache(self, using, ct):
+         """Insert a ContentType into the cache."""

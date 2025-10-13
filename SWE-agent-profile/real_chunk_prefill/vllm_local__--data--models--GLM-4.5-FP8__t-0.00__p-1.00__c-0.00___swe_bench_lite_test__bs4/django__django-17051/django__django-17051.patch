@@ -1,0 +1,28 @@
+diff --git a/django/template/defaultfilters.py b/django/template/defaultfilters.py
+index 03676533b7..b2e7cb6f91 100644
+--- a/django/template/defaultfilters.py
++++ b/django/template/defaultfilters.py
+@@ -587,7 +587,9 @@ def join(value, arg, autoescape=True):
+     try:
+         if autoescape:
+             value = [conditional_escape(v) for v in value]
+-        data = conditional_escape(arg).join(value)
++        else:
++            value = [str(v) for v in value]
++        data = (conditional_escape(arg) if autoescape else arg).join(value)
+     except TypeError:  # Fail silently if arg isn't iterable.
+         return value
+     return mark_safe(data)
+diff --git a/tests/template_tests/filter_tests/test_join.py b/tests/template_tests/filter_tests/test_join.py
+index 08f68537ee..d431497cfc 100644
+--- a/tests/template_tests/filter_tests/test_join.py
++++ b/tests/template_tests/filter_tests/test_join.py
+@@ -69,7 +69,7 @@ class FunctionTests(SimpleTestCase):
+     def test_autoescape_off(self):
+         self.assertEqual(
+             join(["<a>", "<img>", "</a>"], "<br>", autoescape=False),
+-            "<a>&lt;br&gt;<img>&lt;br&gt;</a>",
++            "<a><br><img><br></a>",
+         )
+ 
+     def test_noniterable_arg(self):

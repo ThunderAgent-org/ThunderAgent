@@ -1,0 +1,52 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 4038859cfa..24f66ec4ab 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -1302,21 +1302,33 @@ class Model(metaclass=ModelBase):
+             not settings.is_overridden('DEFAULT_AUTO_FIELD') and
+             not cls._meta.app_config._is_default_auto_field_overridden
+         ):
+-            return [
+-                checks.Warning(
+-                    f"Auto-created primary key used when not defining a "
+-                    f"primary key type, by default "
+-                    f"'{settings.DEFAULT_AUTO_FIELD}'.",
+-                    hint=(
+-                        f"Configure the DEFAULT_AUTO_FIELD setting or the "
+-                        f"{cls._meta.app_config.__class__.__qualname__}."
+-                        f"default_auto_field attribute to point to a subclass "
+-                        f"of AutoField, e.g. 'django.db.models.BigAutoField'."
++            # Check if this model inherits a primary key from a parent model
++            # that has a manually specified (non-auto-created) primary key
++            inherits_manual_pk = False
++            for parent, field in cls._meta.parents.items():
++                if field and hasattr(parent._meta, 'pk') and parent._meta.pk:
++                    # If the parent has a non-auto-created primary key, then this model
++                    # inherits a manually specified primary key and should not trigger W042
++                    if not parent._meta.pk.auto_created:
++                        inherits_manual_pk = True
++                        break
++            
++            if not inherits_manual_pk:
++                return [
++                    checks.Warning(
++                        f"Auto-created primary key used when not defining a "
++                        f"primary key type, by default "
++                        f"'{settings.DEFAULT_AUTO_FIELD}'.",
++                        hint=(
++                            f"Configure the DEFAULT_AUTO_FIELD setting or the "
++                            f"{cls._meta.app_config.__class__.__qualname__}."
++                            f"default_auto_field attribute to point to a subclass "
++                            f"of AutoField, e.g. 'django.db.models.BigAutoField'."
++                        ),
++                        obj=cls,
++                        id='models.W042',
+                     ),
+-                    obj=cls,
+-                    id='models.W042',
+-                ),
+-            ]
++                ]
+         return []
+ 
+     @classmethod
