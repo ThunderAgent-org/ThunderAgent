@@ -1,0 +1,17 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 8837881579..e33b31f81a 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -679,7 +679,11 @@ class Query(BaseExpression):
+         """
+         field_names, defer = self.deferred_loading
+         if not field_names:
+-            return
++            if defer:
++                # In defer mode, empty field_names means "defer nothing", so load all fields
++                return
++            # In only mode, empty field_names means "load only must_include fields (like pk)"
++            # So we continue processing with an empty seen set
+         orig_opts = self.get_meta()
+         seen = {}
+         must_include = {orig_opts.concrete_model: {orig_opts.pk}}

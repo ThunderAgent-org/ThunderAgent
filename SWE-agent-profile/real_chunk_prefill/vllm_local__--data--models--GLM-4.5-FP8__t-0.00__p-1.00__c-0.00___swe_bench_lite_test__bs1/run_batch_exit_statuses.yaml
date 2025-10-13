@@ -1,0 +1,8 @@
+instances_by_exit_status:
+    submitted:
+    - django__django-13925
+    - django__django-13933
+    - django__django-13964
+    - django__django-14016
+    - django__django-14017
+total_cost: 0.0

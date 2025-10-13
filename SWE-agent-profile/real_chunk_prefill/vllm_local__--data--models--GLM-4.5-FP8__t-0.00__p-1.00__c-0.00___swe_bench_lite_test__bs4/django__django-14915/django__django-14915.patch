@@ -1,0 +1,103 @@
+diff --git a/django/db/models/sql/query.py b/django/db/models/sql/query.py
+index 8837881579..18ba0607c9 100644
+--- a/django/db/models/sql/query.py
++++ b/django/db/models/sql/query.py
+@@ -225,6 +225,8 @@ class Query(BaseExpression):
+         # are the fields to defer, or False if these are the only fields to
+         # load.
+         self.deferred_loading = (frozenset(), True)
++        # Flag to track when we've transitioned from only() to defer()
++        self._defer_all_after_only = False
+ 
+         self._filtered_relations = {}
+ 
+@@ -679,6 +681,14 @@ class Query(BaseExpression):
+         """
+         field_names, defer = self.deferred_loading
+         if not field_names:
++            if defer:
++                # Empty field_names with defer=True means "defer all fields except
++                # the default ones (like pk)". We need to handle this case by
++                # setting up the callback to only include the must_include fields.
++                orig_opts = self.get_meta()
++                must_include = {orig_opts.concrete_model: {orig_opts.pk}}
++                for model, values in must_include.items():
++                    callback(target, model, values)
+             return
+         orig_opts = self.get_meta()
+         seen = {}
+@@ -730,6 +740,26 @@ class Query(BaseExpression):
+                 # "else" branch here.
+                 if model in workset:
+                     workset[model].update(values)
++                else:
++                    # If workset is empty for this model, it means we want to
++                    # load only the must_include fields (typically just the pk).
++                    workset[model] = values
++            
++            # Special case: if field_names contains all the fields that would normally
++            # be loaded, it means we want to defer all fields and only load the
++            # must_include fields (typically just the pk).
++            # This handles cases like only().defer().defer() where we want to
++            # defer all fields including additional ones.
++            if workset and field_names:
++                all_model_fields = set()
++                for model in workset:
++                    all_model_fields.update(model._meta.local_fields)
++                if field_names.issuperset(f.name for f in all_model_fields if not is_reverse_o2o(f)):
++                    # All fields are being deferred, so only load must_include fields
++                    workset = {}
++                    for model, values in must_include.items():
++                        workset[model] = values
++            
+             for model, values in workset.items():
+                 callback(target, model, values)
+         else:
+@@ -2082,11 +2112,23 @@ class Query(BaseExpression):
+         # get_columns()).
+         existing, defer = self.deferred_loading
+         if defer:
+-            # Add to existing deferred names.
+-            self.deferred_loading = existing.union(field_names), True
++            if self._defer_all_after_only:
++                # We're in the state where we want to defer all fields after only().defer()
++                # Keep the state as "defer all fields except default ones"
++                self.deferred_loading = frozenset(), True
++            else:
++                # Add to existing deferred names.
++                self.deferred_loading = existing.union(field_names), True
+         else:
+             # Remove names from the set of any existing "immediate load" names.
+-            self.deferred_loading = existing.difference(field_names), False
++            result = existing.difference(field_names)
++            # If the result is an empty set, it means we want to defer all fields
++            # except the default ones (like pk), so we should set defer=True.
++            if not result:
++                self.deferred_loading = frozenset(), True
++                self._defer_all_after_only = True  # Mark that we transitioned from only() to defer()
++            else:
++                self.deferred_loading = result, False
+ 
+     def add_immediate_loading(self, field_names):
+         """
+@@ -2105,12 +2147,17 @@ class Query(BaseExpression):
+             field_names.add(self.get_meta().pk.name)
+ 
+         if defer:
+-            # Remove any existing deferred names from the current set before
+-            # setting the new names.
+-            self.deferred_loading = field_names.difference(existing), False
++            # When we have deferred fields and call only(), we want to load
++            # only the specified fields, not all fields. The existing logic
++            # of removing deferred names from field_names doesn't make sense
++            # in this context.
++            self.deferred_loading = frozenset(field_names), False
+         else:
+             # Replace any existing "immediate load" field names.
+             self.deferred_loading = frozenset(field_names), False
++        
++        # Reset the flag since we're setting immediate loading fields
++        self._defer_all_after_only = False
+ 
+     def get_loaded_field_names(self):
+         """

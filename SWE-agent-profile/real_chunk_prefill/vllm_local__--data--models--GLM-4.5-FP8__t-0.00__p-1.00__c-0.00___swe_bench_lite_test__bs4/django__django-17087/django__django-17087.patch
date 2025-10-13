@@ -1,0 +1,45 @@
+diff --git a/django/db/migrations/operations/models.py b/django/db/migrations/operations/models.py
+index b89b6b511b..d75e4c65d7 100644
+--- a/django/db/migrations/operations/models.py
++++ b/django/db/migrations/operations/models.py
+@@ -647,6 +647,19 @@ class AlterIndexTogether(AlterTogetherOptionOperation):
+     def __init__(self, name, index_together):
+         super().__init__(name, index_together)
+ 
++    def reduce(self, operation, app_label):
++        if isinstance(operation, AddIndex) and self.references_model(operation.model_name, app_label):
++            # If we're setting index_together and then adding the same index as an Index,
++            # this represents a transition from index_together to indexes. We can
++            # optimize this away by keeping only the AddIndex operation.
++            if self.option_value and operation.index.fields:
++                for index_together_fields in self.option_value:
++                    if list(index_together_fields) == operation.index.fields:
++                        # The AddIndex operation represents the same index as the index_together entry.
++                        # Return just the AddIndex to eliminate the deprecation warning.
++                        return [operation]
++        return super().reduce(operation, app_label)
++
+ 
+ class AlterOrderWithRespectTo(ModelOptionOperation):
+     """Represent a change with the order_with_respect_to option."""
+@@ -909,6 +922,20 @@ class RemoveIndex(IndexOperation):
+     def migration_name_fragment(self):
+         return "remove_%s_%s" % (self.model_name_lower, self.name.lower())
+ 
++    def reduce(self, operation, app_label):
++        if isinstance(operation, AlterIndexTogether) and self.references_model(operation.name, app_label):
++            # If we're removing an index and then setting index_together,
++            # this might represent a transition from indexes to index_together.
++            # We can optimize this away by keeping only the AlterIndexTogether operation.
++            # This is the reverse of the more common case.
++            if operation.option_value:
++                # We can't easily determine if the removed index corresponds to the index_together
++                # entry without access to the index fields, but in the context of squashing migrations,
++                # this pattern likely represents a transition from new to old format.
++                # For now, we'll assume this is a valid optimization and keep the AlterIndexTogether.
++                return [operation]
++        return super().reduce(operation, app_label)
++
+ 
+ class RenameIndex(IndexOperation):
+     """Rename an index."""

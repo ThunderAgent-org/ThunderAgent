@@ -1,0 +1,20 @@
+diff --git a/django/db/models/base.py b/django/db/models/base.py
+index 2428218696..b9ad3326b1 100644
+--- a/django/db/models/base.py
++++ b/django/db/models/base.py
+@@ -937,6 +937,15 @@ class Model(metaclass=ModelBase):
+                     # Use pk from related object if it has been saved after
+                     # an assignment.
+                     setattr(self, field.attname, obj.pk)
++                elif (not obj._meta.pk.auto_created and 
++                      getattr(self, field.attname) != obj.pk and
++                      getattr(self, field.attname) in field.empty_values):
++                    # Use pk from related object if it has a non-auto primary key,
++                    # the current value doesn't match the related object's pk,
++                    # and the current value is an empty value for the field.
++                    # This handles cases where a non-auto PK (e.g., CharField) 
++                    # was set to its empty value when an unsaved object was assigned.
++                    setattr(self, field.attname, obj.pk)
+                 # If the relationship's pk/to_field was changed, clear the
+                 # cached relationship.
+                 if getattr(obj, field.target_field.attname) != getattr(self, field.attname):
