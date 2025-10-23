@@ -763,6 +763,10 @@ class LiteLLMModel(AbstractModel):
             setattr(self, "_last_input_tokens", input_tokens)
             setattr(self, "_last_output_tokens", output_tokens)
             return outputs
+        decode_request_wall_start = time.time()
+        setattr(self, "_last_decode_request_wall_start", decode_request_wall_start)
+        setattr(self, "_last_pd_metrics", None)
+        setattr(self, "_last_pd_request_id", None)
         try:
             response: litellm.types.utils.ModelResponse = litellm.completion(  # type: ignore
                 model=self.config.name,
@@ -825,7 +829,9 @@ class LiteLLMModel(AbstractModel):
         self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=cost)
         setattr(self, "_last_input_tokens", input_tokens)
         setattr(self, "_last_output_tokens", output_tokens)
-        setattr(self, "_last_chunk_wall_time", time.time())
+        now_wall = time.time()
+        setattr(self, "_last_first_chunk_wall", now_wall)
+        setattr(self, "_last_chunk_wall_time", now_wall)
         return outputs
 
     def _single_query_stream(
@@ -853,6 +859,10 @@ class LiteLLMModel(AbstractModel):
         last_chunk_wall_time: float | None = None
         setattr(self, "_last_chunk_wall_time", None)
         setattr(self, "_last_first_chunk_wall", None)
+        decode_request_wall_start = time.time()
+        setattr(self, "_last_decode_request_wall_start", decode_request_wall_start)
+        setattr(self, "_last_pd_metrics", None)
+        setattr(self, "_last_pd_request_id", None)
         try:
             stream = litellm.completion(  # type: ignore
                 model=self.config.name,
@@ -880,6 +890,35 @@ class LiteLLMModel(AbstractModel):
             chunk_perf = time.perf_counter()
             chunk_has_payload = False
             chunk_data = chunk.model_dump() if hasattr(chunk, "model_dump") else chunk
+            if isinstance(chunk_data, str):
+                stripped = chunk_data.strip()
+                if stripped.startswith("data:"):
+                    payload = stripped[5:].strip()
+                    if payload and payload != "[DONE]":
+                        try:
+                            chunk_data = json.loads(payload)
+                        except json.JSONDecodeError:
+                            chunk_data = {}
+                else:
+                    try:
+                        chunk_data = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        chunk_data = {}
+
+            if isinstance(chunk_data, dict):
+                pd_request_id = chunk_data.get("pd_request_id")
+                if pd_request_id is not None:
+                    setattr(self, "_last_pd_request_id", pd_request_id)
+                    continue
+                pd_metrics = chunk_data.get("pd_metrics")
+                if pd_metrics is not None:
+                    setattr(self, "_last_pd_metrics", pd_metrics)
+                    if "decode_request_start" in pd_metrics:
+                        setattr(self, "_last_decode_request_wall_start", pd_metrics["decode_request_start"])
+                    # Metrics chunk should not be treated as payload
+                    continue
+
+            chunk_data = chunk_data if isinstance(chunk_data, dict) else {}
             choices = chunk_data.get("choices", [])
             for choice in choices:
                 idx = int(choice.get("index", 0))
@@ -952,6 +991,10 @@ class LiteLLMModel(AbstractModel):
             outputs.append(output_dict)
 
         self._update_stats(input_tokens=input_tokens, output_tokens=output_tokens, cost=0.0)
+        if last_chunk_wall_time is None:
+            last_chunk_wall_time = time.time()
+        if first_payload_wall is None:
+            first_payload_wall = decode_request_wall_start
         setattr(self, "_last_chunk_wall_time", last_chunk_wall_time)
         setattr(self, "_last_first_chunk_wall", first_payload_wall)
         return outputs, output_tokens

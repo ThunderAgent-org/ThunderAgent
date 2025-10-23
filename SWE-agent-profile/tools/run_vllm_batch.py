@@ -22,6 +22,8 @@ from typing import Any
 
 import yaml
 
+from sweagent.run.common import _parse_args_to_nested_dict
+from sweagent.utils.serialization import merge_nested_dicts
 
 
 def parse_args() -> argparse.Namespace:
@@ -162,6 +164,34 @@ def _to_plain_dict(data: Any) -> Any:
         return {key: _to_plain_dict(value) for key, value in data.items()}
     return _normalize_value(data)
 
+
+def _apply_cli_overrides(
+    base_cfg: Mapping[str, Any],
+    args_list: Sequence[str],
+) -> tuple[dict[str, Any], str | None]:
+    """
+    Merge CLI-style overrides into the base configuration.
+
+    Returns the merged configuration dictionary and any explicitly provided
+    ``--suffix`` value (even if empty). The suffix is returned separately so the
+    caller can compose it with existing suffix entries if desired.
+    """
+    applied_cfg = deepcopy(dict(base_cfg))
+    if not args_list:
+        return applied_cfg, None
+
+    overrides_raw = _parse_args_to_nested_dict(list(args_list))
+    overrides = _to_plain_dict(overrides_raw)
+
+    # Remove keys that are not relevant for config overrides.
+    suffix_override = None
+    if isinstance(overrides, dict) and "suffix" in overrides:
+        suffix_override = overrides.pop("suffix")
+        if suffix_override is not None:
+            suffix_override = str(suffix_override)
+
+    merge_nested_dicts(applied_cfg, overrides if isinstance(overrides, dict) else {})
+    return applied_cfg, suffix_override
 
 
 def _prepare_run_cleanup(

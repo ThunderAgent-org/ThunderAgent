@@ -75,6 +75,10 @@ class PrefixCacheMetricsHook(AbstractAgentHook):
         self._first_token_wall_time = None
         self._llm_duration_accum = 0.0
         self._metrics_before_snapshot = None
+        model = getattr(self._agent, "model", None)
+        if model is not None:
+            setattr(model, "_last_pd_metrics", None)
+            setattr(model, "_last_pd_request_id", None)
 
     def on_step_done(self, *, step: StepOutput, info: AgentInfo):
         """Finalize step bookkeeping."""
@@ -85,6 +89,10 @@ class PrefixCacheMetricsHook(AbstractAgentHook):
         self._first_token_wall_time = None
         self._llm_duration_accum = 0.0
         self._metrics_before_snapshot = None
+        model = getattr(self._agent, "model", None)
+        if model is not None:
+            setattr(model, "_last_pd_metrics", None)
+            setattr(model, "_last_pd_request_id", None)
 
     def on_model_query(self, *, messages, agent: str) -> None:  # type: ignore[override]
         self._reasoning_start = time.perf_counter()
@@ -128,30 +136,55 @@ class PrefixCacheMetricsHook(AbstractAgentHook):
         if self.log_path is None:
             return
         model = getattr(self._agent, "model", None)
-        prefill_time = 0.0
-        first_chunk_wall = getattr(model, "_last_first_chunk_wall", None) if model is not None else None
-        if self._prefill_start_wall is not None and first_chunk_wall is not None:
-            prefill_time = max(0.0, first_chunk_wall - self._prefill_start_wall)
-        last_chunk_wall = getattr(model, "_last_chunk_wall_time", None) if model is not None else None
-        if first_chunk_wall is not None and last_chunk_wall is not None:
-            decode_time = max(0.0, last_chunk_wall - first_chunk_wall)
+        decode_request_wall = getattr(model, "_last_decode_request_wall_start", None) if model is not None else None
+        pd_metrics = getattr(model, "_last_pd_metrics", None) if model is not None else None
+        if isinstance(pd_metrics, dict):
+            prefill_start_wall = pd_metrics.get("prefill_start")
+            decode_start_wall = pd_metrics.get("decode_start")
+            decode_end_wall = pd_metrics.get("decode_end")
+            prefill_end_wall = decode_start_wall
+            decode_request_wall = pd_metrics.get("decode_request_start", decode_request_wall)
         else:
-            decode_time = 0.0
+            prefill_start_wall = self._prefill_start_wall
+            decode_start_wall = getattr(model, "_last_first_chunk_wall", None) if model is not None else None
+            decode_end_wall = getattr(model, "_last_chunk_wall_time", None) if model is not None else None
+            prefill_end_wall = decode_start_wall
+
+        def _non_negative_delta(start: float | None, end: float | None) -> float:
+            if start is None or end is None:
+                return 0.0
+            return max(0.0, end - start)
+
+        prefill_time = _non_negative_delta(prefill_start_wall, prefill_end_wall)
+        decode_wait_time = _non_negative_delta(decode_request_wall, decode_start_wall)
+        decode_time = _non_negative_delta(decode_start_wall, decode_end_wall)
+
         input_tokens = getattr(model, "_last_input_tokens", None)
         output_tokens = getattr(model, "_last_output_tokens", None)
         current_time = time.time()
         record = {
             "step": self.current_step,
             "timestamp": current_time,
-            "first_chunk_timestamp": first_chunk_wall,
+            "prefill_start_timestamp": prefill_start_wall,
+            "prefill_end_timestamp": prefill_end_wall,
+            "decode_request_start_timestamp": decode_request_wall,
+            "decode_start_timestamp": decode_start_wall,
+            "decode_end_timestamp": decode_end_wall,
+            "first_chunk_timestamp": decode_start_wall,
             "llm_reasoning_time": self._llm_duration_accum,
             "prefill_time": prefill_time,
+            "decode_wait_time": decode_wait_time,
             "decode_time": decode_time,
         }
+        pd_request_id = getattr(model, "_last_pd_request_id", None) if model is not None else None
+        if pd_request_id is not None:
+            record["pd_request_id"] = pd_request_id
         if input_tokens is not None:
             record["input_tokens"] = int(input_tokens)
         if output_tokens is not None:
             record["output_tokens"] = int(output_tokens)
+        if isinstance(pd_metrics, dict) and "prefill_http_end" in pd_metrics:
+            record["prefill_http_end_timestamp"] = pd_metrics.get("prefill_http_end")
 
         if snapshot_before is not None:
             record["metrics_before_timestamp"] = snapshot_before.get("timestamp")

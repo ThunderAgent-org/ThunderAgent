@@ -5,8 +5,7 @@ vllm:
   port: 8000
   wait_timeout: 240
   tokenizer: /data/models/SWE-agent-LM-32B
-  tensor_parallel: 2
-  gpu_memory_utilization: 0.9
+  gpu_memory_utilization: 0.8
   dtype: auto
   max_model_len: null
   extra_args:
@@ -15,10 +14,101 @@ vllm:
     - --enable-prefix-caching
     - --tool-call-parser
     - hermes
-    - --data-parallel-size
-    - 4 
+    - --max-num-batched-tokens
+    - 1600
+    - --max-num-seqs
+    - 8
 
-  env: {}
+  disaggregated_prefill:
+    wait_timeout: 240
+    set_host_ip_env: true
+    prefill:
+      port: 8100
+      cuda_visible_devices: "0,1"
+      tensor_parallel: 2
+      gpu_memory_utilization: 0.8
+      extra_args:
+        - --max-num-seqs
+        - 8
+      kv_transfer_config:
+        kv_connector: P2pNcclConnector
+        kv_role: kv_producer
+        kv_rank: 0
+        kv_parallel_size: 4
+        kv_port: 21100
+        kv_buffer_size: 4e9
+        kv_connector_extra_config:
+          http_port: "8100"
+          proxy_ip: "127.0.0.1"
+          proxy_port: "30001"
+          send_type: PUT_ASYNC
+          mem_pool_size_gb: 128
+    decode:
+      - port: 8200
+        cuda_visible_devices: "2,3"
+        tensor_parallel: 2
+        gpu_memory_utilization: 0.75
+        extra_args:
+          - --max-num-seqs
+          - 8
+        kv_transfer_config:
+          kv_connector: P2pNcclConnector
+          kv_role: kv_consumer
+          kv_rank: 1
+          kv_parallel_size: 4
+          kv_port: 22100
+          kv_buffer_size: 1e10
+          kv_connector_extra_config:
+            http_port: "8200"
+            proxy_ip: "127.0.0.1"
+            proxy_port: "30001"
+            send_type: PUT_ASYNC
+            mem_pool_size_gb: 96
+      - port: 8300
+        cuda_visible_devices: "4,5"
+        tensor_parallel: 2
+        gpu_memory_utilization: 0.75
+        extra_args:
+          - --max-num-seqs
+          - 8
+        kv_transfer_config:
+          kv_connector: P2pNcclConnector
+          kv_role: kv_consumer
+          kv_rank: 2
+          kv_parallel_size: 4
+          kv_port: 22104
+          kv_buffer_size: 1e10
+          kv_connector_extra_config:
+            http_port: "8300"
+            proxy_ip: "127.0.0.1"
+            proxy_port: "30001"
+            send_type: PUT_ASYNC
+            mem_pool_size_gb: 96
+      - port: 8400
+        cuda_visible_devices: "6,7"
+        tensor_parallel: 2
+        gpu_memory_utilization: 0.75
+        extra_args:
+          - --max-num-seqs
+          - 8
+        kv_transfer_config:
+          kv_connector: P2pNcclConnector
+          kv_role: kv_consumer
+          kv_rank: 3
+          kv_parallel_size: 4
+          kv_port: 22108
+          kv_buffer_size: 1e10
+          kv_connector_extra_config:
+            http_port: "8400"
+            proxy_ip: "127.0.0.1"
+            proxy_port: "30001"
+            send_type: PUT_ASYNC
+            mem_pool_size_gb: 96
+    proxy:
+      port: 8000
+
+  env:
+    PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
 
 batch:
   sweagent_config: config/vllm_local_32B.yaml

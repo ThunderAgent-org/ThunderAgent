@@ -110,7 +110,7 @@ agent:
     execution_timeout: 300
   history_processors:
   - type: cache_control
-    last_n_messages: 8
+    last_n_messages: 2
   model:
     type: vllm
     name: /data/models/SWE-agent-LM-32B
@@ -120,7 +120,7 @@ agent:
     temperature: 0.0
     per_instance_cost_limit: 0
     total_cost_limit: 0
-    per_instance_call_limit: 135
+    per_instance_call_limit: 90
     completion_kwargs:
       max_output_tokens: 2048
 
