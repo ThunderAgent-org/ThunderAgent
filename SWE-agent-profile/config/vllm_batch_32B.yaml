@@ -64,6 +64,7 @@ vllm:
             proxy_port: "30001"
             send_type: PUT_ASYNC
             mem_pool_size_gb: 96
+
       - port: 8300
         cuda_visible_devices: "4,5"
         tensor_parallel: 2
@@ -84,6 +85,7 @@ vllm:
             proxy_port: "30001"
             send_type: PUT_ASYNC
             mem_pool_size_gb: 96
+
       - port: 8400
         cuda_visible_devices: "6,7"
         tensor_parallel: 2
@@ -104,6 +106,9 @@ vllm:
             proxy_port: "30001"
             send_type: PUT_ASYNC
             mem_pool_size_gb: 96
+
+    proxy:
+      port: 8000
     proxy:
       port: 8000
 

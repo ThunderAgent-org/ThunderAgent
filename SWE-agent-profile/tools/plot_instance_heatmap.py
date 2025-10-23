@@ -259,7 +259,7 @@ def _load_step_ratios(inst_dir: Path, verbose: bool = False) -> dict[int, float]
                     step = int(record.get("step", 0) or 0)
                 except (TypeError, ValueError):
                     continue
-                ts = record.get("first_chunk_timestamp")
+                ts = record.get("prefill_end_timestamp")
                 try:
                     tsf = float(ts)
                 except (TypeError, ValueError):
