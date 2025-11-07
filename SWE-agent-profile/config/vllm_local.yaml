@@ -70,7 +70,7 @@ agent:
       last_n_messages: 8
   model:
     type: vllm
-    name: /data/models/GLM-4.5-FP8
+    name: /data/models/GLM-4.5-Air
     api_base: http://127.0.0.1:8000/v1
     api_key: "dummy"
     custom_llm_provider: openai
@@ -78,6 +78,7 @@ agent:
     per_instance_cost_limit: 0
     total_cost_limit: 0
     per_instance_call_limit: 120
+    max_input_tokens: 131072
     completion_kwargs:
       max_output_tokens: 2048
 
