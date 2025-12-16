@@ -177,6 +177,44 @@ def _install_instance_cleanup_patch() -> None:
 _install_instance_cleanup_patch()
 
 
+def build_thunderreact_command(server_cfg: dict, thunderreact_path: str, proxy_port: int, enable_logging: bool = False) -> list[str]:
+    """Build ThunderReact command that wraps vLLM"""
+    cmd = [
+        sys.executable,
+        thunderreact_path,
+        "--auto-start-vllm",
+        "--port", str(proxy_port),
+        "--vllm-port", str(server_cfg.get("port", 8000)),
+        "--log-dir", "./thunderreact_logs",
+        # Remove --verbose to avoid console spam
+    ]
+    
+    # Add --enable-logging if requested
+    if enable_logging:
+        cmd.append("--enable-logging")
+    
+    # Add all vLLM parameters
+    if "model" in server_cfg:
+        cmd.extend(["--model", str(server_cfg["model"])])
+    if "tokenizer" in server_cfg:
+        cmd.extend(["--tokenizer", str(server_cfg["tokenizer"])])
+    if "host" in server_cfg:
+        cmd.extend(["--host", str(server_cfg["host"])])
+    if "gpu_memory_utilization" in server_cfg:
+        cmd.extend(["--gpu-memory-utilization", str(server_cfg["gpu_memory_utilization"])])
+    if "dtype" in server_cfg:
+        cmd.extend(["--dtype", str(server_cfg["dtype"])])
+    if "max_model_len" in server_cfg:
+        cmd.extend(["--max-model-len", str(server_cfg["max_model_len"])])
+    
+    # Add extra_args from config
+    if "extra_args" in server_cfg:
+        for arg in server_cfg["extra_args"]:
+            cmd.append(str(arg))
+    
+    return cmd
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Start vLLM server and run sweagent batches without step synchronization.",
@@ -195,6 +233,27 @@ def parse_args() -> argparse.Namespace:
         "--only-runs",
         nargs="*",
         help="Only execute runs whose label matches one of the provided names.",
+    )
+    parser.add_argument(
+        "--use-thunderreact",
+        action="store_true",
+        help="Use ThunderReact proxy instead of direct vLLM (enables request/response logging).",
+    )
+    parser.add_argument(
+        "--thunderreact-path",
+        default="/root/workspace/MultiagentSystem/thunderreact/simple_proxy.py",
+        help="Path to ThunderReact simple_proxy.py script.",
+    )
+    parser.add_argument(
+        "--proxy-port",
+        type=int,
+        default=9000,
+        help="ThunderReact proxy port (only used with --use-thunderreact).",
+    )
+    parser.add_argument(
+        "--enable-proxy-logging",
+        action="store_true",
+        help="Enable ThunderReact request/response logging to files.",
     )
     return parser.parse_args()
 
@@ -254,8 +313,18 @@ def main() -> int:
 
     selected_runs = set(args.only_runs or [])
 
-    server_cmd = blocking.build_vllm_command(server_cfg)
-    print("Starting vLLM server:", " ".join(server_cmd))
+    # Build server command (vLLM or ThunderReact)
+    if args.use_thunderreact:
+        server_cmd = build_thunderreact_command(server_cfg, args.thunderreact_path, args.proxy_port, args.enable_proxy_logging)
+        print("Starting ThunderReact proxy (wrapping vLLM):", " ".join(server_cmd))
+        # Update config to point to proxy port
+        connect_host = str(server_cfg.get("connect_host", server_cfg.get("host", "127.0.0.1")))
+        port = args.proxy_port  # Use proxy port instead of vLLM port
+    else:
+        server_cmd = blocking.build_vllm_command(server_cfg)
+        print("Starting vLLM server:", " ".join(server_cmd))
+        connect_host = str(server_cfg.get("connect_host", server_cfg.get("host", "127.0.0.1")))
+        port = int(server_cfg.get("port", 8000))
 
     if args.dry_run:
         print("[dry-run] would wait for server and run sweagent batch (non-blocking)")
@@ -278,11 +347,17 @@ def main() -> int:
 
     server_proc = subprocess.Popen(server_cmd, env=blocking._merge_env(server_cfg.get("env")))
     try:
-        connect_host = str(server_cfg.get("connect_host", server_cfg.get("host", "127.0.0.1")))
-        port = int(server_cfg.get("port", 8000))
         timeout = int(server_cfg.get("wait_timeout", raw_config.get("wait_timeout", 180)))
         blocking.wait_for_server(connect_host, port, timeout)
-        print("vLLM server is ready. Running sweagent batch (non-blocking)...")
+        
+        if args.use_thunderreact:
+            print(f"ThunderReact proxy is ready on port {port}. Running sweagent batch (non-blocking)...")
+            if args.enable_proxy_logging:
+                print(f"📝 Request/response logs will be saved to: ./thunderreact_logs/")
+            else:
+                print(f"📝 Logging disabled (add --enable-proxy-logging to enable)")
+        else:
+            print("vLLM server is ready. Running sweagent batch (non-blocking)...")
 
         exit_code = 0
         seen: set[str] = set()
@@ -313,7 +388,10 @@ def main() -> int:
             raise ValueError(f"Requested runs not found in config: {missing}")
         return exit_code
     finally:
-        print("Stopping vLLM server...")
+        if args.use_thunderreact:
+            print("Stopping ThunderReact proxy (and vLLM)...")
+        else:
+            print("Stopping vLLM server...")
         blocking.terminate_process(server_proc)
 
 
