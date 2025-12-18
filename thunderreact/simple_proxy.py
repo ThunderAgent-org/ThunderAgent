@@ -40,13 +40,37 @@ class SimpleProxyHandler(BaseHTTPRequestHandler):
         # Build target URL
         target_url = f"http://localhost:{self.server.vllm_port}{self.path}"
         
-        # Log request (only log to file, not console)
+        # Extract instance_id and is_terminated from request body
+        instance_id = None
+        is_terminated = False
+        if body:
+            try:
+                body_json = json.loads(body.decode('utf-8'))
+                # Check for instance metadata in various possible locations
+                if "extra_body" in body_json:
+                    instance_id = body_json["extra_body"].get("instance_id")
+                    is_terminated = body_json["extra_body"].get("is_terminated", False)
+                elif "metadata" in body_json:
+                    instance_id = body_json["metadata"].get("instance_id")
+                    is_terminated = body_json["metadata"].get("is_terminated", False)
+                
+                # Update instance state
+                if instance_id:
+                    self.server.instance_states[instance_id] = {
+                        "is_terminated": is_terminated,
+                        "last_seen": time.time()
+                    }
+            except (json.JSONDecodeError, KeyError):
+                pass
         
+        # Log request (only log to file, not console)
         request_data = {
             "timestamp": time.time(),
             "method": method,
             "path": self.path,
             "body": body.decode('utf-8', errors='ignore') if body else "",
+            "instance_id": instance_id,
+            "is_terminated": is_terminated,
         }
         self.server.log_request(request_data)
         
@@ -62,20 +86,40 @@ class SimpleProxyHandler(BaseHTTPRequestHandler):
             with urllib.request.urlopen(req, timeout=300) as response:
                 response_body = response.read()
                 
+                # Inject instance metadata into response if present
+                modified_response_body = response_body
+                if instance_id:
+                    try:
+                        response_json = json.loads(response_body.decode('utf-8'))
+                        # Add instance metadata to response
+                        if "metadata" not in response_json:
+                            response_json["metadata"] = {}
+                        response_json["metadata"]["instance_id"] = instance_id
+                        response_json["metadata"]["is_terminated"] = self.server.instance_states.get(
+                            instance_id, {}
+                        ).get("is_terminated", False)
+                        modified_response_body = json.dumps(response_json).encode('utf-8')
+                    except (json.JSONDecodeError, KeyError):
+                        # If response is not JSON or doesn't have expected structure, keep original
+                        pass
+                
                 # Log response
                 response_data = {
                     "timestamp": time.time(),
                     "status": response.status,
-                    "body": response_body.decode('utf-8', errors='ignore'),
+                    "body": modified_response_body.decode('utf-8', errors='ignore'),
+                    "instance_id": instance_id,
                 }
                 self.server.log_response(response_data)
                 
                 # Return response
                 self.send_response(response.status)
                 for key, value in response.headers.items():
-                    self.send_header(key, value)
+                    if key.lower() != 'content-length':  # Recalculate content-length
+                        self.send_header(key, value)
+                self.send_header('Content-Length', str(len(modified_response_body)))
                 self.end_headers()
-                self.wfile.write(response_body)
+                self.wfile.write(modified_response_body)
                 
         except urllib.error.HTTPError as e:
             # Forward error response
@@ -103,6 +147,9 @@ class ProxyServer(HTTPServer):
         self.log_dir = log_dir
         self.verbose = verbose
         self.enable_logging = enable_logging
+        
+        # Track instance states: {instance_id: {"is_terminated": bool, "last_seen": timestamp}}
+        self.instance_states = {}
         
         # Only open log files if logging is enabled
         if self.enable_logging:

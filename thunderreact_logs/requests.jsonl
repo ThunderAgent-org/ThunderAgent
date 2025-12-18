@@ -1,0 +1,4 @@
+{"timestamp": 1765916307.5750313, "request_id": 1, "method": "GET", "path": "/v1/models", "request": {}}
+{"timestamp": 1765916313.8259375, "request_id": 2, "method": "GET", "path": "/v1/models", "request": {}}
+{"timestamp": 1765917098.4754822, "method": "GET", "path": "/v1/models", "body": ""}
+{"timestamp": 1765917237.597012, "method": "POST", "path": "/v1/chat/completions", "body": "{\n    \"model\": \"/data/models/GLM-4.5-Air\",\n    \"messages\": [\n      {\"role\": \"user\", \"content\": \"???????????????????????????????????????\"}\n    ],\n    \"temperature\": 0.7,\n    \"max_tokens\": 100\n  }"}
