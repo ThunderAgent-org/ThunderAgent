@@ -28,9 +28,15 @@ try:  # pragma: no cover - optional dependency
 except Exception:  # pragma: no cover
     _NVML_AVAILABLE = False
 
+try:  # pragma: no cover - optional dependency
+    import psutil
+    _PSUTIL_AVAILABLE = True
+except Exception:  # pragma: no cover
+    _PSUTIL_AVAILABLE = False
+
 
 class GpuMetricsHook(AbstractAgentHook):
-    """Monitor GPU utilisation during LLM reasoning and write per-instance JSON data."""
+    """Monitor GPU, CPU, memory, and disk utilisation during LLM reasoning and write per-instance JSON data."""
 
     def __init__(self, log_file: str = "gpu_metrics.json", sample_interval: float = 0.5):
         self.log_file_name = log_file
@@ -159,40 +165,78 @@ class GpuMetricsHook(AbstractAgentHook):
             time.sleep(max(self.sample_interval, 0.05))
 
     def _collect_snapshot(self) -> Optional[dict[str, Any]]:
-        if not self._nvml_handles:
-            return None
-        gpus: list[dict[str, Any]] = []
         timestamp = time.time()
-        for idx, handle in enumerate(self._nvml_handles):
-            try:
-                util = nvmlDeviceGetUtilizationRates(handle)
-                mem = nvmlDeviceGetMemoryInfo(handle)
-                try:
-                    temp = nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
-                except Exception:
-                    temp = None
-                gpus.append(
-                    {
-                        "index": idx,
-                        "name": self._gpu_names[idx] if idx < len(self._gpu_names) else f"GPU-{idx}",
-                        "sm_util": getattr(util, "gpu", None),
-                        "mem_util": getattr(util, "memory", None),
-                        "mem_used": getattr(mem, "used", None),
-                        "mem_total": getattr(mem, "total", None),
-                        "temperature": temp,
-                    }
-                )
-            except Exception:
-                continue
-        if not gpus:
-            return None
-        return {
+        snapshot = {
             "timestamp": timestamp,
             "step": self._step_index,
             "attempt": self._attempt_index,
             "stage": "llm_reasoning",
-            "gpus": gpus,
         }
+        
+        # Collect GPU metrics
+        if self._nvml_handles:
+            gpus: list[dict[str, Any]] = []
+            for idx, handle in enumerate(self._nvml_handles):
+                try:
+                    util = nvmlDeviceGetUtilizationRates(handle)
+                    mem = nvmlDeviceGetMemoryInfo(handle)
+                    try:
+                        temp = nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
+                    except Exception:
+                        temp = None
+                    gpus.append(
+                        {
+                            "index": idx,
+                            "name": self._gpu_names[idx] if idx < len(self._gpu_names) else f"GPU-{idx}",
+                            "sm_util": getattr(util, "gpu", None),
+                            "mem_util": getattr(util, "memory", None),
+                            "mem_used": getattr(mem, "used", None),
+                            "mem_total": getattr(mem, "total", None),
+                            "temperature": temp,
+                        }
+                    )
+                except Exception:
+                    continue
+            if gpus:
+                snapshot["gpus"] = gpus
+        
+        # Collect CPU and memory metrics
+        if _PSUTIL_AVAILABLE:
+            try:
+                # CPU utilization (percentage)
+                cpu_percent = psutil.cpu_percent(interval=None)
+                
+                # CPU memory (RAM)
+                virtual_mem = psutil.virtual_memory()
+                
+                # Disk usage (root filesystem)
+                disk_usage = psutil.disk_usage('/')
+                
+                snapshot["cpu"] = {
+                    "cpu_percent": cpu_percent,
+                    "cpu_count": psutil.cpu_count(),
+                }
+                
+                snapshot["memory"] = {
+                    "mem_used": virtual_mem.used,
+                    "mem_total": virtual_mem.total,
+                    "mem_available": virtual_mem.available,
+                    "mem_percent": virtual_mem.percent,
+                }
+                
+                snapshot["disk"] = {
+                    "disk_used": disk_usage.used,
+                    "disk_total": disk_usage.total,
+                    "disk_free": disk_usage.free,
+                    "disk_percent": disk_usage.percent,
+                }
+            except Exception:
+                pass  # If psutil fails, continue without CPU/memory/disk metrics
+        
+        # Return snapshot only if we have at least some metrics
+        if len(snapshot) > 4:  # More than just timestamp, step, attempt, stage
+            return snapshot
+        return None
 
     def _flush_records(self) -> None:
         if self._log_path is None or not self._records:

@@ -50,7 +50,7 @@ from swerex.deployment.hooks.status import SetStatusDeploymentHook
 from sweagent import TRAJECTORY_DIR
 from sweagent.agent.agents import AgentConfig, get_agent_from_config
 from sweagent.agent.hooks.stage_timing import StageTimingAgentHook
-from sweagent.agent.hooks.gpu_monitor import GpuMetricsHook
+# from sweagent.agent.hooks.gpu_monitor import GpuMetricsHook  # Disabled: use ThunderReact's global profiling
 from sweagent.agent.hooks.prefix_cache_metrics import PrefixCacheMetricsHook
 from sweagent.agent.hooks.status import SetStatusAgentHook
 from sweagent.environment.hooks.status import SetStatusEnvironmentHook
@@ -355,7 +355,8 @@ class RunBatch:
         stage_timing_hook = StageTimingAgentHook(timing_logger)
         agent.add_hook(stage_timing_hook)
         agent.add_hook(PrefixCacheMetricsHook())
-        agent.add_hook(GpuMetricsHook())
+        # Note: GpuMetricsHook disabled - use ThunderReact's global system profiling instead
+        # agent.add_hook(GpuMetricsHook())
         agent.add_hook(SetStatusAgentHook(instance.problem_statement.id, self._progress_manager.update_instance_status))
         self._progress_manager.update_instance_status(instance.problem_statement.id, "Starting environment")
         instance.env.name = f"{instance.problem_statement.id}"

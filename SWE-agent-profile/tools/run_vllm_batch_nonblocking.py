@@ -7,8 +7,11 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
+import threading
+import time
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -29,6 +32,7 @@ from sweagent.utils.log import get_logger
 
 CLEANUP_LOGGER = get_logger("docker-cleanup", emoji="🧹")
 _CLEANUP_PATCH_APPLIED = False
+HEALTH_CHECK_LOGGER = get_logger("vllm-health", emoji="🏥")
 
 
 def _derive_container_name_patterns(instance_id: str) -> set[str]:
@@ -177,7 +181,133 @@ def _install_instance_cleanup_patch() -> None:
 _install_instance_cleanup_patch()
 
 
-def build_thunderreact_command(server_cfg: dict, thunderreact_path: str, proxy_port: int, enable_logging: bool = False) -> list[str]:
+def check_server_health(host: str, port: int, timeout: float = 5.0) -> bool:
+    """Check if server is responsive on the given host:port"""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+
+def health_monitor_thread(
+    host: str,
+    port: int,
+    server_proc: subprocess.Popen,
+    server_cmd: list[str],
+    server_env: dict[str, str] | None,
+    stop_event: threading.Event,
+    restart_callback,
+    check_interval: int = 30,
+    consecutive_failures: int = 3
+):
+    """Monitor server health and restart if necessary
+    
+    Args:
+        host: Server host
+        port: Server port
+        server_proc: Current server process
+        server_cmd: Command to restart server
+        server_env: Environment variables for server
+        stop_event: Event to signal thread to stop
+        restart_callback: Function to call with new process when restarting
+        check_interval: Seconds between health checks
+        consecutive_failures: Number of consecutive failures before restart
+    """
+    failure_count = 0
+    restart_count = 0
+    max_restarts = 5
+    
+    HEALTH_CHECK_LOGGER.info(f"Health monitor started (checking every {check_interval}s)")
+    
+    while not stop_event.is_set():
+        # Wait for check_interval or until stop_event is set
+        if stop_event.wait(timeout=check_interval):
+            break
+        
+        # Check if process is still running
+        if server_proc.poll() is not None:
+            HEALTH_CHECK_LOGGER.warning(f"Server process died (exit code: {server_proc.returncode})")
+            failure_count = consecutive_failures  # Immediate restart
+        # Check if port is responsive
+        elif not check_server_health(host, port, timeout=5.0):
+            failure_count += 1
+            HEALTH_CHECK_LOGGER.warning(
+                f"Server health check failed ({failure_count}/{consecutive_failures})"
+            )
+        else:
+            # Health check passed
+            if failure_count > 0:
+                HEALTH_CHECK_LOGGER.info("Server recovered")
+            failure_count = 0
+            continue
+        
+        # Restart if we've reached consecutive failures
+        if failure_count >= consecutive_failures:
+            if restart_count >= max_restarts:
+                HEALTH_CHECK_LOGGER.error(
+                    f"Maximum restart attempts ({max_restarts}) reached. Giving up."
+                )
+                break
+            
+            restart_count += 1
+            HEALTH_CHECK_LOGGER.warning(
+                f"Attempting to restart server (attempt {restart_count}/{max_restarts})..."
+            )
+            
+            # Kill old process
+            try:
+                if server_proc.poll() is None:
+                    server_proc.terminate()
+                    time.sleep(2)
+                    if server_proc.poll() is None:
+                        server_proc.kill()
+                        server_proc.wait(timeout=5)
+            except Exception as e:
+                HEALTH_CHECK_LOGGER.error(f"Error killing old process: {e}")
+            
+            # Start new process
+            try:
+                new_proc = subprocess.Popen(server_cmd, env=server_env)
+                HEALTH_CHECK_LOGGER.info(f"New server process started (PID: {new_proc.pid})")
+                
+                # Wait for server to be ready
+                max_wait = 120
+                waited = 0
+                while waited < max_wait and not stop_event.is_set():
+                    if check_server_health(host, port, timeout=2.0):
+                        HEALTH_CHECK_LOGGER.info(
+                            f"Server successfully restarted and is responsive"
+                        )
+                        restart_callback(new_proc)
+                        failure_count = 0
+                        break
+                    time.sleep(5)
+                    waited += 5
+                else:
+                    if not stop_event.is_set():
+                        HEALTH_CHECK_LOGGER.error(
+                            f"Server failed to become responsive after {max_wait}s"
+                        )
+                        failure_count = 0  # Reset to try again later
+            except Exception as e:
+                HEALTH_CHECK_LOGGER.error(f"Failed to restart server: {e}")
+                failure_count = 0  # Reset to try again later
+    
+    HEALTH_CHECK_LOGGER.info("Health monitor stopped")
+
+
+def build_thunderreact_command(
+    server_cfg: dict, 
+    thunderreact_path: str, 
+    proxy_port: int, 
+    enable_logging: bool = False,
+    enable_system_profiling: bool = False,
+    profiling_interval: float = 0.5
+) -> list[str]:
     """Build ThunderReact command that wraps vLLM"""
     cmd = [
         sys.executable,
@@ -192,6 +322,12 @@ def build_thunderreact_command(server_cfg: dict, thunderreact_path: str, proxy_p
     # Add --enable-logging if requested
     if enable_logging:
         cmd.append("--enable-logging")
+    
+    # Add system profiling parameters if requested
+    if enable_system_profiling:
+        cmd.append("--enable-system-profiling")
+        cmd.extend(["--profiling-interval", str(profiling_interval)])
+        # Output file will be in thunderreact_logs/system_metrics.json by default
     
     # Add all vLLM parameters
     if "model" in server_cfg:
@@ -255,6 +391,28 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Enable ThunderReact request/response logging to files.",
     )
+    parser.add_argument(
+        "--enable-system-profiling",
+        action="store_true",
+        help="Enable system-wide resource profiling (GPU/CPU/Memory/Disk).",
+    )
+    parser.add_argument(
+        "--profiling-interval",
+        type=float,
+        default=0.5,
+        help="System profiling sampling interval in seconds (default: 0.5).",
+    )
+    parser.add_argument(
+        "--health-check-interval",
+        type=int,
+        default=30,
+        help="Server health check interval in seconds (default: 30). Set to 0 to disable.",
+    )
+    parser.add_argument(
+        "--disable-health-check",
+        action="store_true",
+        help="Disable automatic server health monitoring and restart.",
+    )
     return parser.parse_args()
 
 
@@ -315,7 +473,14 @@ def main() -> int:
 
     # Build server command (vLLM or ThunderReact)
     if args.use_thunderreact:
-        server_cmd = build_thunderreact_command(server_cfg, args.thunderreact_path, args.proxy_port, args.enable_proxy_logging)
+        server_cmd = build_thunderreact_command(
+            server_cfg, 
+            args.thunderreact_path, 
+            args.proxy_port, 
+            args.enable_proxy_logging,
+            args.enable_system_profiling,
+            args.profiling_interval
+        )
         print("Starting ThunderReact proxy (wrapping vLLM):", " ".join(server_cmd))
         # Update config to point to proxy port
         connect_host = str(server_cfg.get("connect_host", server_cfg.get("host", "127.0.0.1")))
@@ -346,16 +511,59 @@ def main() -> int:
         return 0
 
     server_proc = subprocess.Popen(server_cmd, env=blocking._merge_env(server_cfg.get("env")))
+    server_proc_lock = threading.Lock()
+    health_monitor_stop = threading.Event()
+    health_monitor = None
+    
+    def update_server_proc(new_proc: subprocess.Popen):
+        """Callback to update server_proc reference when restarted"""
+        nonlocal server_proc
+        with server_proc_lock:
+            server_proc = new_proc
+    
     try:
         timeout = int(server_cfg.get("wait_timeout", raw_config.get("wait_timeout", 180)))
         blocking.wait_for_server(connect_host, port, timeout)
         
+        # Start health monitor thread (unless disabled)
+        if not args.disable_health_check and args.health_check_interval > 0:
+            health_check_interval = args.health_check_interval
+            health_monitor = threading.Thread(
+                target=health_monitor_thread,
+                args=(
+                    connect_host,
+                    port,
+                    server_proc,
+                    server_cmd,
+                    blocking._merge_env(server_cfg.get("env")),
+                    health_monitor_stop,
+                    update_server_proc,
+                    health_check_interval,
+                    3  # consecutive failures before restart
+                ),
+                daemon=True,
+                name="vllm-health-monitor"
+            )
+            health_monitor.start()
+            HEALTH_CHECK_LOGGER.info(
+                f"Health monitoring enabled (interval: {health_check_interval}s, max restarts: 5)"
+            )
+        else:
+            HEALTH_CHECK_LOGGER.info("Health monitoring disabled")
+        
         if args.use_thunderreact:
             print(f"ThunderReact proxy is ready on port {port}. Running sweagent batch (non-blocking)...")
             if args.enable_proxy_logging:
-                print(f"📝 Request/response logs will be saved to: ./thunderreact_logs/")
+                print(f"📝 Request/response logs: ./thunderreact_logs/{{requests,responses}}.jsonl")
             else:
-                print(f"📝 Logging disabled (add --enable-proxy-logging to enable)")
+                print(f"📝 Request/response logging disabled (add --enable-proxy-logging to enable)")
+            
+            if args.enable_system_profiling:
+                print(f"📊 System profiling enabled:")
+                print(f"   Output: ./thunderreact_logs/system_metrics.json")
+                print(f"   Interval: {args.profiling_interval}s")
+            else:
+                print(f"📊 System profiling disabled (add --enable-system-profiling to enable)")
         else:
             print("vLLM server is ready. Running sweagent batch (non-blocking)...")
 
@@ -388,11 +596,19 @@ def main() -> int:
             raise ValueError(f"Requested runs not found in config: {missing}")
         return exit_code
     finally:
+        # Stop health monitor
+        if health_monitor and health_monitor.is_alive():
+            HEALTH_CHECK_LOGGER.info("Stopping health monitor...")
+            health_monitor_stop.set()
+            health_monitor.join(timeout=5)
+        
+        # Stop server
         if args.use_thunderreact:
             print("Stopping ThunderReact proxy (and vLLM)...")
         else:
             print("Stopping vLLM server...")
-        blocking.terminate_process(server_proc)
+        with server_proc_lock:
+            blocking.terminate_process(server_proc)
 
 
 if __name__ == "__main__":

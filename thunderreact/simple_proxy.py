@@ -11,6 +11,14 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.request
 import urllib.error
 
+# Import system profiler
+try:
+    from system_profiler import SystemProfiler
+    PROFILER_AVAILABLE = True
+except ImportError:
+    PROFILER_AVAILABLE = False
+    SystemProfiler = None
+
 
 class SimpleProxyHandler(BaseHTTPRequestHandler):
     """Simple HTTP proxy handler"""
@@ -186,37 +194,87 @@ def main():
     parser.add_argument("--enable-logging", action="store_true", 
                        help="Enable request/response logging to files")
     
+    # System profiling arguments
+    parser.add_argument("--enable-system-profiling", action="store_true",
+                       help="Enable system resource profiling (GPU/CPU/Memory/Disk)")
+    parser.add_argument("--profiling-output", default="system_metrics.json",
+                       help="System profiling output file (default: system_metrics.json)")
+    parser.add_argument("--profiling-interval", type=float, default=0.5,
+                       help="System profiling sampling interval in seconds (default: 0.5)")
+    
     args, unknown = parser.parse_known_args()
     
     import os
     os.makedirs(args.log_dir, exist_ok=True)
     
     vllm_process = None
+    profiler = None
     
     try:
+        # Start system profiler if enabled
+        if args.enable_system_profiling:
+            if not PROFILER_AVAILABLE:
+                print("Warning: System profiler not available (missing dependencies)")
+                print("  Install: pip install psutil pynvml")
+            else:
+                import os.path
+                profiling_output = os.path.join(args.log_dir, args.profiling_output)
+                profiler = SystemProfiler(
+                    output_file=profiling_output,
+                    sample_interval=args.profiling_interval,
+                    verbose=args.verbose
+                )
+                profiler.start()
+                print(f"[System Profiling] Started")
+                print(f"  Output: {profiling_output}")
+                print(f"  Interval: {args.profiling_interval}s")
+        
         if args.auto_start_vllm:
-            # Start vLLM
+            # Start vLLM - filter out ThunderReact-specific arguments
             vllm_cmd = ['python', '-m', 'vllm.entrypoints.openai.api_server']
-            for arg in sys.argv[1:]:
-                if arg not in ['--auto-start-vllm', '--vllm-port', str(args.vllm_port), 
-                              '--log-dir', args.log_dir, '--verbose']:
-                    if arg == '--port':
-                        vllm_cmd.extend(['--port', str(args.vllm_port)])
-                        # Skip next arg (port value)
-                        continue
-                    vllm_cmd.append(arg)
             
-            print(f"🚀 Starting vLLM: {' '.join(vllm_cmd)}")
+            # ThunderReact-specific arguments that should NOT be passed to vLLM
+            thunder_args = {
+                '--auto-start-vllm',
+                '--vllm-port', str(args.vllm_port),
+                '--log-dir', args.log_dir,
+                '--verbose',
+                '--enable-logging',  # ThunderReact-only
+                '--enable-system-profiling',  # ThunderReact-only
+                '--profiling-output', args.profiling_output,
+                '--profiling-interval', str(args.profiling_interval),
+            }
+            
+            skip_next = False
+            for i, arg in enumerate(sys.argv[1:]):
+                if skip_next:
+                    skip_next = False
+                    continue
+                
+                if arg in thunder_args:
+                    # Check if next arg is the value for this flag
+                    if arg in ['--vllm-port', '--log-dir', '--profiling-output', '--profiling-interval']:
+                        skip_next = True
+                    continue
+                
+                if arg == '--port':
+                    vllm_cmd.extend(['--port', str(args.vllm_port)])
+                    skip_next = True
+                    continue
+                
+                vllm_cmd.append(arg)
+            
+            print(f"[vLLM] Starting: {' '.join(vllm_cmd)}")
             vllm_process = subprocess.Popen(vllm_cmd)
-            print(f"⏳ Waiting for vLLM to start...")
+            print(f"[vLLM] Waiting to start...")
             time.sleep(10)  # Simple wait
         
         # Start proxy
-        print(f"🌐 Starting proxy: localhost:{args.port} -> localhost:{args.vllm_port}")
+        print(f"[Proxy] Starting: localhost:{args.port} -> localhost:{args.vllm_port}")
         if args.enable_logging:
-            print(f"📝 Logging enabled: {args.log_dir}/")
+            print(f"[Logging] Enabled: {args.log_dir}/")
         else:
-            print(f"📝 Logging disabled (use --enable-logging to enable)")
+            print(f"[Logging] Disabled (use --enable-logging to enable)")
         
         server = ProxyServer(
             ('0.0.0.0', args.port),
@@ -227,13 +285,27 @@ def main():
             args.enable_logging
         )
         
+        print("[Proxy] Ready - Press Ctrl+C to stop")
         server.serve_forever()
     
     except KeyboardInterrupt:
-        print("\n👋 Stopping...")
+        print("\n[Proxy] Stopping...")
     finally:
+        # Stop system profiler
+        if profiler:
+            print("[System Profiling] Stopping...")
+            profiler.stop()
+            summary = profiler.get_summary()
+            print(f"  Collected {summary.get('total_samples', 0)} samples over {summary.get('duration_seconds', 0):.1f}s")
+            if 'gpu' in summary:
+                print(f"  GPU avg: {summary['gpu']['avg_utilization']:.1f}% util, {summary['gpu']['avg_mem_utilization']:.1f}% mem")
+            if 'cpu' in summary:
+                print(f"  CPU avg: {summary['cpu']['avg_percent']:.1f}%")
+            if 'memory' in summary:
+                print(f"  Memory avg: {summary['memory']['avg_percent']:.1f}%")
+        
         if vllm_process:
-            print("🛑 Stopping vLLM...")
+            print("[vLLM] Stopping...")
             vllm_process.terminate()
             vllm_process.wait()
 
