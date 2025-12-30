@@ -2,12 +2,12 @@
 # 定义 vLLM 本地服务器的 LLM 配置
 
 [llm.vllm_local]
-model = "openai/Qwen3-Coder-30B-A3B-Instruct"
+model = "/mnt/shared/Qwen3-Coder-30B-A3B-Instruct"
 api_key = "EMPTY"
 base_url = "http://127.0.0.1:8100/v1"
 temperature = 0.0
 top_p = 1.0
-max_tokens = 4096
+max_output_tokens = 8192
 timeout = 600
 num_retries = 5
 
