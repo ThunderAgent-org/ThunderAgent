@@ -12,7 +12,7 @@ from pathlib import Path
 VLLM_CMD = [
     "vllm",
     "serve",
-    "/mnt/shared/Qwen3-Coder-30B-A3B-Instruct",
+    "/mnt/shared/models/GLM-4.6-FP8",
     # "--kv_cache_dtype",
     # "fp8",
     "--port",
@@ -21,26 +21,43 @@ VLLM_CMD = [
     "8",
     "--enable-auto-tool-choice",
     "--tool-call-parser",
-    "qwen3_coder"
+    "glm45",
+    "--reasoning-parser",
+    "glm45",
 ]
 
 
 def _wait_vllm_healthy(proc: subprocess.Popen) -> None:
-    urls = (
-        "http://127.0.0.1:8100/health",
-        "http://127.0.0.1:8100/v1/models",
-    )
+    """等待 vLLM 完全启动，包括模型加载完成"""
+    import json
+    
+    health_url = "http://127.0.0.1:8100/health"
+    models_url = "http://127.0.0.1:8100/v1/models"
+    
     while True:
         if proc.poll() is not None:
             raise RuntimeError(f"vLLM exited early with code {proc.returncode}")
-        for url in urls:
-            try:
-                with urllib.request.urlopen(url) as resp:
-                    if resp.status == 200:
-                        print(f"vLLM healthy: {url}")
+        
+        try:
+            # 先检查 health 端点
+            with urllib.request.urlopen(health_url, timeout=5) as resp:
+                if resp.status != 200:
+                    time.sleep(1)
+                    continue
+            
+            # 再检查 models 端点，确认模型已加载
+            with urllib.request.urlopen(models_url, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode())
+                    models = data.get("data", [])
+                    if models:
+                        print(f"vLLM ready! Loaded models: {[m.get('id') for m in models]}")
                         return
-            except Exception:
-                pass
+                    else:
+                        print("vLLM health OK, but no models loaded yet...")
+        except Exception as e:
+            pass
+        
         time.sleep(1)
 
 
@@ -113,7 +130,7 @@ def main() -> int:
             "--max-iterations",
             "50",
             "--eval-num-workers",
-            "1",
+            "24",
             "--eval-output-dir",
             "./outputs",
         ]
