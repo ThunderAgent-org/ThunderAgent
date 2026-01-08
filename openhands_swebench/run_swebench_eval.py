@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import subprocess
 import sys
 import time
@@ -7,6 +8,15 @@ import os
 import shutil
 import threading
 from pathlib import Path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run SWE-bench evaluation")
+    parser.add_argument("--num-workers", type=int, default=24,
+                        help="Number of parallel evaluation workers (default: 24)")
+    parser.add_argument("--monitor-csv", type=str, default=None,
+                        help="CSV file name for system monitoring (default: system_monitor_{num_workers}.csv)")
+    return parser.parse_args()
 
 
 VLLM_CMD = [
@@ -61,8 +71,7 @@ def _wait_vllm_healthy(proc: subprocess.Popen) -> None:
         time.sleep(1)
 
 
-def monitor_system(stop_event):
-    log_file = "system_monitor.csv"
+def monitor_system(stop_event, log_file: str):
     
     def get_cpu():
         with open('/proc/stat') as f:
@@ -105,9 +114,13 @@ def monitor_system(stop_event):
 
 
 def main() -> int:
+    args = parse_args()
+    num_workers = args.num_workers
+    monitor_csv = args.monitor_csv or f"system_monitor_{num_workers}.csv"
+    
     vllm_proc = subprocess.Popen(VLLM_CMD)
     stop_event = threading.Event()
-    monitor_thread = threading.Thread(target=monitor_system, args=(stop_event,))
+    monitor_thread = threading.Thread(target=monitor_system, args=(stop_event, monitor_csv))
     monitor_thread.start()
     try:
         _wait_vllm_healthy(vllm_proc)
@@ -130,7 +143,7 @@ def main() -> int:
             "--max-iterations",
             "50",
             "--eval-num-workers",
-            "24",
+            str(num_workers),
             "--eval-output-dir",
             "./outputs",
         ]

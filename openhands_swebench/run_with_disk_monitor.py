@@ -3,8 +3,9 @@
 带磁盘监控的评估运行器
 
 每 2 秒检测 overlay (/) 的可用空间，如果 <= 500GB 则终止所有进程。
-用法: python run_with_disk_monitor.py
+用法: python run_with_disk_monitor.py --num-workers 24
 """
+import argparse
 import os
 import shutil
 import signal
@@ -18,6 +19,15 @@ from pathlib import Path
 DISK_THRESHOLD_GB = 500  # 磁盘空间阈值 (GB)
 CHECK_INTERVAL = 2       # 检测间隔 (秒)
 # =================================
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run SWE-bench evaluation with disk monitoring")
+    parser.add_argument("--num-workers", type=int, default=24,
+                        help="Number of parallel evaluation workers (default: 24)")
+    parser.add_argument("--monitor-csv", type=str, default=None,
+                        help="CSV file name for system monitoring (default: system_monitor_{num_workers}.csv)")
+    return parser.parse_args()
 
 _shutdown_event = threading.Event()
 _main_process: subprocess.Popen = None
@@ -106,6 +116,10 @@ def kill_process_tree(proc: subprocess.Popen):
 def main() -> int:
     global _main_process
     
+    args = parse_args()
+    num_workers = args.num_workers
+    monitor_csv = args.monitor_csv or f"system_monitor_{num_workers}.csv"
+    
     # 打印启动信息
     available_gb = get_disk_available_gb()
     print(f"{'='*60}")
@@ -113,6 +127,8 @@ def main() -> int:
     print(f"📊 当前 overlay 可用空间: {available_gb:.1f} GB")
     print(f"⚠️  阈值: {DISK_THRESHOLD_GB} GB (低于此值将自动终止)")
     print(f"⏱️  检测间隔: {CHECK_INTERVAL} 秒")
+    print(f"👥 并行 workers: {num_workers}")
+    print(f"📝 监控日志: {monitor_csv}")
     print(f"{'='*60}\n")
     
     # 启动磁盘监控线程
@@ -124,7 +140,9 @@ def main() -> int:
     
     try:
         _main_process = subprocess.Popen(
-            [sys.executable, str(script_path)],
+            [sys.executable, str(script_path), 
+             "--num-workers", str(num_workers),
+             "--monitor-csv", monitor_csv],
             start_new_session=True,  # 创建新的进程组
         )
         

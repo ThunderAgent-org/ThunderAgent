@@ -9,7 +9,7 @@ plt.rcParams['figure.figsize'] = [15, 6]
 
 # Load data
 try:
-    df = pd.read_csv('system_monitor.csv')
+    df = pd.read_csv('system_monitor_24.csv')
     print("Data loaded successfully.")
 except FileNotFoundError:
     print("Error: system_monitor.csv not found. Please ensure the file is in the same directory.")
