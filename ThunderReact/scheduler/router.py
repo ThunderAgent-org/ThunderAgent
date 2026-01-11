@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Callable, Awaitable, Tuple
 import httpx
 from fastapi.responses import Response, StreamingResponse
 
-from ..backend import BackendState, MetricsMonitor
+from ..backend import BackendState
 from ..program import ProgramState, ProgramStatus
 from ..profile.state import ProfileState
 from ..config import get_config
@@ -35,9 +35,6 @@ class MultiBackendRouter:
         
         # Profile configuration
         self.profile_enabled = profile_enabled
-        
-        # Metrics monitoring (initialized in start() if enabled)
-        self._metrics_monitor: Optional[MetricsMonitor] = None
 
         self.client = httpx.AsyncClient(
             timeout=900.0,
@@ -48,18 +45,17 @@ class MultiBackendRouter:
         """Start the router."""
         logger.info(f"Started router with {len(self.backends)} backend(s): {list(self.backends.keys())}")
         
-        # Start metrics monitoring if enabled
+        # Start metrics monitoring on each backend if enabled
         config = get_config()
         if config.metrics_enabled:
-            self._metrics_monitor = MetricsMonitor(self.backends, config.metrics_interval)
-            await self._metrics_monitor.start()
+            for backend in self.backends.values():
+                await backend.start_monitoring(config.metrics_interval)
 
     async def stop(self):
         """Stop the router."""
-        # Stop metrics monitoring
-        if self._metrics_monitor:
-            await self._metrics_monitor.stop()
-            self._metrics_monitor = None
+        # Stop metrics monitoring on each backend
+        for backend in self.backends.values():
+            await backend.stop_monitoring()
         
         await self.client.aclose()
         logger.info("Router stopped")
