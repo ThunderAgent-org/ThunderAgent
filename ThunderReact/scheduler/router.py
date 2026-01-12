@@ -154,14 +154,15 @@ class MultiBackendRouter:
         """Stop a program (keep in records with stopped status).
         
         Removes program's tokens from backend's active_tokens.
-        This is a forced operation - always removes tokens regardless of current status.
+        Only removes tokens if program was active (REASONING/ACTING).
         """
         if program_id in self.programs:
             state = self.programs[program_id]
-            # Always remove tokens from backend (forced release)
-            backend = self.backends.get(state.backend_url)
-            if backend:
-                backend.remove_program_tokens(state.total_tokens)
+            # Only remove tokens if program was active (not already STOPPED/PAUSED)
+            if state.status in (ProgramStatus.REASONING, ProgramStatus.ACTING):
+                backend = self.backends.get(state.backend_url)
+                if backend:
+                    backend.remove_program_tokens(state.total_tokens)
             state.status = ProgramStatus.STOPPED
             logger.info(f"Released program: {program_id}")
             return True
