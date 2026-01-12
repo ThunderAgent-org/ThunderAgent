@@ -24,6 +24,9 @@ class BackendState:
         # Static cache config (fetched once at startup)
         self.cache_config: Optional[VLLMCacheConfig] = None
         
+        # Active program tokens: sum of total_tokens for all REASONING/ACTING programs
+        self.active_program_tokens: int = 0
+        
         # Metrics monitoring (self-managed)
         self._monitor_task: Optional[asyncio.Task] = None
         self._monitor_stop = False
@@ -43,6 +46,35 @@ class BackendState:
     def latest_metrics(self) -> Optional[VLLMMetrics]:
         """Get the most recent metrics sample."""
         return self.metrics_history[-1] if self.metrics_history else None
+    
+    @property
+    def active_program_tokens_ratio(self) -> float:
+        """Ratio of active program tokens to total capacity."""
+        if not self.cache_config or self.cache_config.total_tokens_capacity == 0:
+            return 0.0
+        return self.active_program_tokens / self.cache_config.total_tokens_capacity
+    
+    # -------------------------------------------------------------------------
+    # Active Program Tokens Management
+    # -------------------------------------------------------------------------
+    
+    def add_program_tokens(self, tokens: int) -> None:
+        """Add tokens when a program becomes active (REASONING/ACTING)."""
+        self.active_program_tokens += tokens
+    
+    def remove_program_tokens(self, tokens: int) -> None:
+        """Remove tokens when a program becomes inactive (PAUSED/STOPPED)."""
+        self.active_program_tokens -= tokens
+        if self.active_program_tokens < 0:
+            logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
+            self.active_program_tokens = 0
+    
+    def update_program_tokens(self, old_tokens: int, new_tokens: int) -> None:
+        """Update tokens when a program's total_tokens changes (e.g., after request)."""
+        self.active_program_tokens += (new_tokens - old_tokens)
+        if self.active_program_tokens < 0:
+            logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
+            self.active_program_tokens = 0
     
     # -------------------------------------------------------------------------
     # Metrics Monitoring (self-managed)
@@ -132,6 +164,8 @@ class BackendState:
             "url": self.url,
             "healthy": self.healthy,
             "monitoring": self._monitor_task is not None,
+            "active_program_tokens": self.active_program_tokens,
+            "active_program_tokens_ratio": round(self.active_program_tokens_ratio, 4),
         }
         # Include cache config (static)
         if self.cache_config:

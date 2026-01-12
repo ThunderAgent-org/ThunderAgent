@@ -117,6 +117,7 @@ class MultiBackendRouter:
         """Update program state before sending request to vLLM.
         
         Sets status to REASONING (on GPU, running inference).
+        Updates backend's active_tokens on first request.
         """
         state.status = ProgramStatus.REASONING
         state.step_count += 1
@@ -126,22 +127,42 @@ class MultiBackendRouter:
         import json
         state.context_len = len(json.dumps(payload, ensure_ascii=False))
         
-        # On first request, estimate total_tokens from context_len
+        # On first request, estimate total_tokens and add to backend
         if state.step_count == 1:
             state.total_tokens = state.context_len // 5
+            # Add estimated tokens to backend
+            backend = self.backends.get(state.backend_url)
+            if backend:
+                backend.add_program_tokens(state.total_tokens)
 
     def update_program_after_request(self, state: ProgramState, total_tokens: int) -> None:
         """Update program state after receiving response from vLLM.
         
         Sets status to ACTING (off GPU, executing tool).
+        Updates backend's active_tokens with actual value.
         """
         state.status = ProgramStatus.ACTING
+        
+        # Update backend's active_tokens (from estimate/old value to actual)
+        old_tokens = state.total_tokens
         state.total_tokens = total_tokens
+        backend = self.backends.get(state.backend_url)
+        if backend:
+            backend.update_program_tokens(old_tokens, total_tokens)
 
     def release_program(self, program_id: str) -> bool:
-        """Stop a program (keep in records with stopped status)."""
+        """Stop a program (keep in records with stopped status).
+        
+        Removes program's tokens from backend's active_tokens.
+        This is a forced operation - always removes tokens regardless of current status.
+        """
         if program_id in self.programs:
-            self.programs[program_id].status = ProgramStatus.STOPPED
+            state = self.programs[program_id]
+            # Always remove tokens from backend (forced release)
+            backend = self.backends.get(state.backend_url)
+            if backend:
+                backend.remove_program_tokens(state.total_tokens)
+            state.status = ProgramStatus.STOPPED
             logger.info(f"Released program: {program_id}")
             return True
         return False
