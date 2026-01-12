@@ -59,6 +59,12 @@ batch:
     - 32
     - --suffix
     - bs32
+  - label: bs48
+    args:
+    - --num_workers
+    - 48
+    - --suffix
+    - bs48
   - label: bs64
     args:
     - --num_workers

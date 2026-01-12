@@ -89,7 +89,7 @@ class BackendState:
         self._client = httpx.AsyncClient(timeout=10.0)
         
         # Fetch cache config once at startup
-        await self._fetch_cache_config()
+        await self.fetch_cache_config()
         
         self._monitor_task = asyncio.create_task(self._monitor_loop(interval))
         logger.info(f"Started metrics monitoring for {self.url} (interval: {interval}s, kv_capacity: {self.cache_config.total_tokens_capacity if self.cache_config else 'unknown'} tokens)")
@@ -121,12 +121,21 @@ class BackendState:
                 logger.debug(f"Error fetching metrics from {self.url}: {e}")
             await asyncio.sleep(interval)
     
-    async def _fetch_cache_config(self) -> bool:
-        """Fetch static cache config from vLLM (called once at startup)."""
-        if not self._client:
-            return False
+    async def fetch_cache_config(self) -> bool:
+        """Fetch static cache config from vLLM.
+        
+        Can be called independently of start_monitoring().
+        Uses existing client if monitoring, otherwise creates a temporary one.
+        """
+        client = self._client
+        close_client = False
+        
+        if client is None:
+            client = httpx.AsyncClient(timeout=10.0)
+            close_client = True
+        
         try:
-            resp = await self._client.get(self.metrics_url)
+            resp = await client.get(self.metrics_url)
             if resp.status_code == 200:
                 self.cache_config = VLLMCacheConfig.from_prometheus_text(resp.text)
                 logger.info(f"Fetched cache config for {self.url}: block_size={self.cache_config.block_size}, num_gpu_blocks={self.cache_config.num_gpu_blocks}, total_capacity={self.cache_config.total_tokens_capacity}")
@@ -135,6 +144,9 @@ class BackendState:
         except Exception as e:
             logger.warning(f"Failed to fetch cache config from {self.url}: {e}")
             return False
+        finally:
+            if close_client:
+                await client.aclose()
     
     async def _fetch_metrics(self) -> bool:
         """Fetch and update metrics from vLLM /metrics endpoint."""

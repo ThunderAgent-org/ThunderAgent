@@ -45,6 +45,10 @@ class MultiBackendRouter:
         """Start the router."""
         logger.info(f"Started router with {len(self.backends)} backend(s): {list(self.backends.keys())}")
         
+        # Always fetch cache config (needed for active_program_tokens_ratio)
+        for backend in self.backends.values():
+            await backend.fetch_cache_config()
+        
         # Start metrics monitoring on each backend if enabled
         config = get_config()
         if config.metrics_enabled:
