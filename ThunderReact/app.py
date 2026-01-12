@@ -58,16 +58,20 @@ async def chat_completions(request: Request):
     program_state = router.get_or_create_program(program_id)
     backend = router.get_backend_for_program(program_id)
 
-    # Update state: now running, calculate context_len and estimate total_tokens
-    router.update_program_before_request(program_state, payload)
+    # Profile: record request arrival BEFORE pause check (for accurate tool_call_time)
+    if program_state.profile:
+        program_state.profile.on_request_arrive()
+
+    # Update state: check capacity, may pause and wait (max 20 min, then force resume)
+    await router.update_program_before_request(program_id, program_state, payload)
     
-    # Profile: record request start (if profiling enabled)
+    # Profile: record request start AFTER pause (captures pause_time)
     if program_state.profile:
         program_state.profile.on_request_start()
 
     # Callback to update state after response
     async def on_usage(total_tokens: int, prompt_tokens: int, cached_tokens: int) -> None:
-        router.update_program_after_request(program_state, total_tokens)
+        router.update_program_after_request(program_id, program_state, total_tokens)
         # Profile: record request end with KV cache info
         if program_state.profile:
             program_state.profile.on_request_end(prompt_tokens, cached_tokens)

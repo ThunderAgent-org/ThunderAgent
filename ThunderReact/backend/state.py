@@ -1,16 +1,22 @@
 """Backend state management."""
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set, TYPE_CHECKING
 
 import httpx
 
 from .vllm_metrics import VLLMMetrics, VLLMCacheConfig
 
+if TYPE_CHECKING:
+    from ..program.state import ProgramState
+
 logger = logging.getLogger(__name__)
 
 # Keep only the most recent N metrics samples
 METRICS_HISTORY_SIZE = 12
+
+# Buffer tokens reserved per program for decode phase
+DECODE_BUFFER = 1024
 
 
 class BackendState:
@@ -24,8 +30,23 @@ class BackendState:
         # Static cache config (fetched once at startup)
         self.cache_config: Optional[VLLMCacheConfig] = None
         
-        # Active program tokens: sum of total_tokens for all REASONING/ACTING programs
-        self.active_program_tokens: int = 0
+        # Program token tracking
+        self.active_program_tokens: int = 0   # REASONING + ACTING programs only
+        self.active_program_count: int = 0    # Number of REASONING + ACTING programs
+        self.total_program_tokens: int = 0    # All non-STOPPED programs (including PAUSED)
+        
+        # Paused programs waiting to be resumed
+        self.paused_programs: Set[str] = set()  # program_id set
+        
+        # Programs marked to be paused when they transition REASONING -> ACTING
+        self.marked_for_pause: Set[str] = set()  # program_id set
+        
+        # Capacity blocked flag: when True, all new requests must wait
+        self.capacity_blocked: bool = False
+        self.capacity_unblocked_event: asyncio.Event = asyncio.Event()
+        
+        # Capacity check task
+        self._capacity_check_task: Optional[asyncio.Task] = None
         
         # Metrics monitoring (self-managed)
         self._monitor_task: Optional[asyncio.Task] = None
@@ -55,26 +76,81 @@ class BackendState:
         return self.active_program_tokens / self.cache_config.total_tokens_capacity
     
     # -------------------------------------------------------------------------
-    # Active Program Tokens Management
+    # Capacity Check
     # -------------------------------------------------------------------------
     
-    def add_program_tokens(self, tokens: int) -> None:
-        """Add tokens when a program becomes active (REASONING/ACTING)."""
-        self.active_program_tokens += tokens
+    def has_capacity(self, extra_tokens: int = 0, extra_count: int = 0) -> bool:
+        """Check if adding extra tokens/programs would exceed capacity.
+        
+        Constraint: active_tokens + active_count * DECODE_BUFFER <= total_capacity
+        """
+        if not self.cache_config:
+            return True  # No config, assume ok
+        
+        tokens = self.active_program_tokens + extra_tokens
+        count = self.active_program_count + extra_count
+        required = tokens + count * DECODE_BUFFER
+        return required <= self.cache_config.total_tokens_capacity
     
-    def remove_program_tokens(self, tokens: int) -> None:
-        """Remove tokens when a program becomes inactive (PAUSED/STOPPED)."""
+    def capacity_overflow(self) -> int:
+        """Return how many tokens we're over capacity (0 if within capacity)."""
+        if not self.cache_config:
+            return 0
+        required = self.active_program_tokens + self.active_program_count * DECODE_BUFFER
+        overflow = required - self.cache_config.total_tokens_capacity
+        return max(0, overflow)
+    
+    # -------------------------------------------------------------------------
+    # Program Token Management
+    # -------------------------------------------------------------------------
+    
+    def add_active_program(self, tokens: int) -> None:
+        """Add a program to active (REASONING/ACTING) state."""
+        self.active_program_tokens += tokens
+        self.active_program_count += 1
+    
+    def remove_active_program(self, tokens: int) -> None:
+        """Remove a program from active state (-> PAUSED)."""
         self.active_program_tokens -= tokens
+        self.active_program_count -= 1
         if self.active_program_tokens < 0:
             logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
             self.active_program_tokens = 0
+        if self.active_program_count < 0:
+            logger.warning(f"active_program_count went negative ({self.active_program_count}), resetting to 0")
+            self.active_program_count = 0
+    
+    def add_total_program(self, tokens: int) -> None:
+        """Add tokens to total (new program, any state except STOPPED)."""
+        self.total_program_tokens += tokens
+    
+    def remove_total_program(self, tokens: int) -> None:
+        """Remove tokens from total (program STOPPED)."""
+        self.total_program_tokens -= tokens
+        if self.total_program_tokens < 0:
+            logger.warning(f"total_program_tokens went negative ({self.total_program_tokens}), resetting to 0")
+            self.total_program_tokens = 0
     
     def update_program_tokens(self, old_tokens: int, new_tokens: int) -> None:
         """Update tokens when a program's total_tokens changes (e.g., after request)."""
-        self.active_program_tokens += (new_tokens - old_tokens)
+        diff = new_tokens - old_tokens
+        self.active_program_tokens += diff
+        self.total_program_tokens += diff
         if self.active_program_tokens < 0:
             logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
             self.active_program_tokens = 0
+        if self.total_program_tokens < 0:
+            logger.warning(f"total_program_tokens went negative ({self.total_program_tokens}), resetting to 0")
+            self.total_program_tokens = 0
+    
+    # Legacy methods for compatibility
+    def add_program_tokens(self, tokens: int) -> None:
+        """Add tokens when a program becomes active (REASONING/ACTING)."""
+        self.add_active_program(tokens)
+    
+    def remove_program_tokens(self, tokens: int) -> None:
+        """Remove tokens when a program becomes inactive (PAUSED/STOPPED)."""
+        self.remove_active_program(tokens)
     
     # -------------------------------------------------------------------------
     # Metrics Monitoring (self-managed)
@@ -177,7 +253,14 @@ class BackendState:
             "healthy": self.healthy,
             "monitoring": self._monitor_task is not None,
             "active_program_tokens": self.active_program_tokens,
+            "active_program_count": self.active_program_count,
             "active_program_tokens_ratio": round(self.active_program_tokens_ratio, 4),
+            "total_program_tokens": self.total_program_tokens,
+            "paused_program_count": len(self.paused_programs),
+            "marked_for_pause_count": len(self.marked_for_pause),
+            "capacity_blocked": self.capacity_blocked,
+            "decode_buffer": DECODE_BUFFER,
+            "capacity_overflow": self.capacity_overflow(),
         }
         # Include cache config (static)
         if self.cache_config:

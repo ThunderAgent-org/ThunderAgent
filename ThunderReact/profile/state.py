@@ -33,15 +33,17 @@ class ProfileState:
     step_metrics: List[StepMetrics] = field(default_factory=list)
     
     # Current request timing state
-    request_start_time: Optional[float] = None  # When request was received
-    first_token_time: Optional[float] = None    # When first token was received
-    last_token_time: Optional[float] = None     # When last token was received
+    request_arrive_time: Optional[float] = None  # When request arrived (before pause check)
+    request_start_time: Optional[float] = None   # When request actually starts (after pause)
+    first_token_time: Optional[float] = None     # When first token was received
+    last_token_time: Optional[float] = None      # When last token was received
     last_request_end_time: Optional[float] = None  # When last request ended (for tool_call calc)
     
     # Current step metrics being built
     _current_prefill: float = 0.0
     _current_decode: float = 0.0
     _current_tool_call: float = 0.0
+    _current_pause: float = 0.0
     
     # CSV writer
     _csv_initialized: bool = False
@@ -78,17 +80,38 @@ class ProfileState:
                 kv_hit_val,
             ])
     
-    def on_request_start(self) -> None:
-        """Called when a new request is received."""
+    def on_request_arrive(self) -> None:
+        """Called when a new request arrives (BEFORE pause check).
+        
+        This captures the true time between requests (tool_call_time).
+        """
         now = time.time()
         
-        # Calculate tool_call_time if this is not the first request
+        # Calculate tool_call_time: time from last request end to this request arriving
         if self.last_request_end_time is not None:
             self._current_tool_call = now - self.last_request_end_time
             if self._current_tool_call < 0:
                 self._current_tool_call = 0.0
         else:
             self._current_tool_call = 0.0
+        
+        self.request_arrive_time = now
+        self._current_pause = 0.0
+    
+    def on_request_start(self) -> None:
+        """Called when request actually starts (AFTER any pause).
+        
+        This captures pause time if there was any.
+        """
+        now = time.time()
+        
+        # Calculate pause time: time from request arrive to request start
+        if self.request_arrive_time is not None:
+            self._current_pause = now - self.request_arrive_time
+            if self._current_pause < 0:
+                self._current_pause = 0.0
+        else:
+            self._current_pause = 0.0
         
         self.request_start_time = now
         self.first_token_time = None
@@ -139,7 +162,7 @@ class ProfileState:
             step_id=step_id,
             prefill_time=self._current_prefill,
             decode_time=self._current_decode,
-            pause_time=0.0,  # Always 0 for now
+            pause_time=self._current_pause,
             tool_call_time=self._current_tool_call,
             kv_hit_rate=kv_hit_rate,
         )

@@ -1,4 +1,5 @@
 """Program state management."""
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, TYPE_CHECKING
@@ -32,3 +33,4 @@ class ProgramState:
     total_tokens: int = 0
     step_count: int = 0
     profile: Optional["ProfileState"] = None  # Profile timing data (when profiling enabled)
+    waiting_event: Optional[asyncio.Event] = field(default=None, repr=False)  # Event to wait on when paused
