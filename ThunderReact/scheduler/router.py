@@ -163,8 +163,9 @@ class MultiBackendRouter:
         # ---------------------------------------------------------------------
         should_pause = False
         
-        # Check 1: If already paused, wait for resume
-        if state.status == ProgramStatus.PAUSED:
+        # Check 1: If paused by scheduler, wait for resume.
+        # Only wait if PAUSED was set by scheduler (new programs start as PAUSED)
+        if state.status == ProgramStatus.PAUSED and state.waiting_event is not None:
             await self._wait_for_resume(program_id, state)
             return True
         
