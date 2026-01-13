@@ -293,7 +293,11 @@ class MultiBackendRouter:
                     backend.scheduling_in_progress = False
         
         state.status = ProgramStatus.STOPPED
-        logger.info(f"Released program: {program_id}")
+        
+        # Remove from programs dict (no need to keep STOPPED programs)
+        del self.programs[program_id]
+        
+        logger.info(f"Released and removed program: {program_id}")
         return True
 
     def get_programs_on_backend(self, backend_url: str) -> Dict[str, ProgramState]:

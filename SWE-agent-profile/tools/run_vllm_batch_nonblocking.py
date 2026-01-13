@@ -345,6 +345,7 @@ def build_thunderreact_command(
     profile_dir: str = "/tmp/thunderreact_profiles",
     metrics: bool = False,
     metrics_interval: float = 5.0,
+    router_mode: str = "tr",
 ) -> tuple[list[str], str]:
     """Build ThunderReact proxy command.
     
@@ -364,6 +365,7 @@ def build_thunderreact_command(
         "--host", host,
         "--port", str(proxy_port),
         "--backends", backends,
+        "--router", router_mode,
         "--log-level", "info",
     ]
     if profile:
@@ -428,6 +430,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=5.0,
         help="Interval in seconds between metrics fetches (default: 5.0).",
+    )
+    parser.add_argument(
+        "--thunderreact-router",
+        default="tr",
+        choices=["default", "tr"],
+        help="ThunderReact router mode: 'default' (pure proxy) or 'tr' (capacity scheduling). Default: tr",
     )
     parser.add_argument(
         "--health-check-interval",
@@ -526,6 +534,7 @@ def main() -> int:
             profile_dir=args.thunderreact_profile_dir,
             metrics=args.thunderreact_metrics,
             metrics_interval=args.thunderreact_metrics_interval,
+            router_mode=args.thunderreact_router,
         )
         
         print("Starting vLLM server:", " ".join(vllm_cmd))

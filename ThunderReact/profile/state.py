@@ -22,6 +22,7 @@ class StepMetrics:
     pause_time: float = 0.0    # Time paused (seconds, 0 for now)
     tool_call_time: float = 0.0  # Time from last token to next request (seconds)
     kv_hit_rate: Optional[float] = None  # KV cache hit rate (0.0-1.0), None if unavailable
+    completed_at: float = 0.0  # Unix timestamp when step completed
 
 
 @dataclass
@@ -59,7 +60,7 @@ class ProfileState:
         if not csv_path.exists():
             with open(csv_path, "w", newline="") as f:
                 writer = csv.writer(f)
-                writer.writerow(["program_id", "step_id", "prefill_s", "decode_s", "pause_s", "tool_call_s", "kv_hit_rate"])
+                writer.writerow(["program_id", "step_id", "prefill_s", "decode_s", "pause_s", "tool_call_s", "kv_hit_rate", "completed_at"])
         self._csv_initialized = True
     
     def _write_step_to_csv(self, metrics: StepMetrics) -> None:
@@ -78,6 +79,7 @@ class ProfileState:
                 round(metrics.pause_time, 4),
                 round(metrics.tool_call_time, 4),
                 kv_hit_val,
+                round(metrics.completed_at, 4),
             ])
     
     def on_request_arrive(self) -> None:
@@ -165,6 +167,7 @@ class ProfileState:
             pause_time=self._current_pause,
             tool_call_time=self._current_tool_call,
             kv_hit_rate=kv_hit_rate,
+            completed_at=now,
         )
         self.step_metrics.append(metrics)
         

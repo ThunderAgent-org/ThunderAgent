@@ -77,7 +77,7 @@ agent:
     temperature: 0.0
     per_instance_cost_limit: 0
     total_cost_limit: 0
-    per_instance_call_limit: 120
+    per_instance_call_limit: 50
     max_input_tokens: 131072
     completion_kwargs:
       max_output_tokens: 2048
