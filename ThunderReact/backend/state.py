@@ -17,12 +17,13 @@ logger = logging.getLogger(__name__)
 METRICS_HISTORY_SIZE = 12
 
 # Buffer tokens reserved per program for decode phase
-DECODE_BUFFER = 1024
-
+DECODE_BUFFER = 512
+SHARED_TOKEN = 2500
 # Cooldown period (seconds) to prevent frequent pause/resume oscillation
 PAUSE_COOLDOWN = 5.0    # Wait after pausing before pausing more
 RESUME_COOLDOWN = 5.0   # Wait after resuming before resuming more
 
+TOOL_COEFFICIENT = 1.0
 
 class BackendState:
     """State of a single VLLM backend with self-managed metrics monitoring."""
@@ -36,7 +37,9 @@ class BackendState:
         self.cache_config: Optional[VLLMCacheConfig] = None
         
         # Program token tracking
-        self.active_program_tokens: int = 0   # REASONING + ACTING programs only
+        self.reasoning_program_tokens: int = 0  # REASONING programs only
+        self.acting_program_tokens: int = 0     # ACTING programs only
+        self.active_program_tokens: int = 0  # REASONING + TOOL_COEFFICIENT * ACTING
         self.active_program_count: int = 0    # Number of REASONING + ACTING programs
         self.total_program_tokens: int = 0    # All non-STOPPED programs (including PAUSED)
         
@@ -95,7 +98,7 @@ class BackendState:
         
         tokens = self.active_program_tokens + extra_tokens
         count = self.active_program_count + extra_count
-        required = tokens + count * DECODE_BUFFER
+        required = tokens + count * DECODE_BUFFER - max(0, (self.active_program_count + extra_count - 1)) * SHARED_TOKEN
         return required <= self.cache_config.total_tokens_capacity
     
     def capacity_overflow(self, include_future_release: bool = False) -> int:
@@ -107,7 +110,7 @@ class BackendState:
         """
         if not self.cache_config:
             return 0
-        required = self.active_program_tokens + self.active_program_count * DECODE_BUFFER
+        required = self.active_program_tokens + self.active_program_count * DECODE_BUFFER - max(0, (self.active_program_count - 1)) * SHARED_TOKEN
         if include_future_release:
             required -= self.future_paused_tokens
         overflow = required - self.cache_config.total_tokens_capacity
@@ -137,18 +140,36 @@ class BackendState:
     # Program Token Management
     # -------------------------------------------------------------------------
     
-    def add_active_program(self, tokens: int) -> None:
+    def add_active_program(self, tokens: int, *, is_acting: bool = False) -> None:
         """Add a program to active (REASONING/ACTING) state."""
-        self.active_program_tokens += tokens
+        if is_acting:
+            self.acting_program_tokens += tokens
+        else:
+            self.reasoning_program_tokens += tokens
+        self.active_program_tokens = int(
+            self.reasoning_program_tokens + TOOL_COEFFICIENT * self.acting_program_tokens
+        )
         self.active_program_count += 1
     
-    def remove_active_program(self, tokens: int) -> None:
+    def remove_active_program(self, tokens: int, *, is_acting: bool = False) -> None:
         """Remove a program from active state (-> PAUSED)."""
-        self.active_program_tokens -= tokens
+        if is_acting:
+            self.acting_program_tokens -= tokens
+        else:
+            self.reasoning_program_tokens -= tokens
+        self.active_program_tokens = int(
+            self.reasoning_program_tokens + TOOL_COEFFICIENT * self.acting_program_tokens
+        )
         self.active_program_count -= 1
         if self.active_program_tokens < 0:
             logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
             self.active_program_tokens = 0
+        if self.reasoning_program_tokens < 0:
+            logger.warning(f"reasoning_program_tokens went negative ({self.reasoning_program_tokens}), resetting to 0")
+            self.reasoning_program_tokens = 0
+        if self.acting_program_tokens < 0:
+            logger.warning(f"acting_program_tokens went negative ({self.acting_program_tokens}), resetting to 0")
+            self.acting_program_tokens = 0
         if self.active_program_count < 0:
             logger.warning(f"active_program_count went negative ({self.active_program_count}), resetting to 0")
             self.active_program_count = 0
@@ -164,17 +185,43 @@ class BackendState:
             logger.warning(f"total_program_tokens went negative ({self.total_program_tokens}), resetting to 0")
             self.total_program_tokens = 0
     
-    def update_program_tokens(self, old_tokens: int, new_tokens: int) -> None:
-        """Update tokens when a program's total_tokens changes (e.g., after request)."""
-        diff = new_tokens - old_tokens
-        self.active_program_tokens += diff
-        self.total_program_tokens += diff
+    def shift_tokens_to_acting(self, old_tokens: int, new_tokens: int) -> None:
+        """Move tokens from REASONING to ACTING and update totals after a request."""
+        self.reasoning_program_tokens -= old_tokens
+        self.acting_program_tokens += new_tokens
+        self.active_program_tokens = int(
+            self.reasoning_program_tokens + TOOL_COEFFICIENT * self.acting_program_tokens
+        )
+        self.total_program_tokens += (new_tokens - old_tokens)
+        if self.reasoning_program_tokens < 0:
+            logger.warning(f"reasoning_program_tokens went negative ({self.reasoning_program_tokens}), resetting to 0")
+            self.reasoning_program_tokens = 0
+        if self.acting_program_tokens < 0:
+            logger.warning(f"acting_program_tokens went negative ({self.acting_program_tokens}), resetting to 0")
+            self.acting_program_tokens = 0
         if self.active_program_tokens < 0:
             logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
             self.active_program_tokens = 0
         if self.total_program_tokens < 0:
             logger.warning(f"total_program_tokens went negative ({self.total_program_tokens}), resetting to 0")
             self.total_program_tokens = 0
+
+    def shift_tokens_to_reasoning(self, tokens: int) -> None:
+        """Move tokens from ACTING to REASONING when a new request starts."""
+        self.acting_program_tokens -= tokens
+        self.reasoning_program_tokens += tokens
+        self.active_program_tokens = int(
+            self.reasoning_program_tokens + TOOL_COEFFICIENT * self.acting_program_tokens
+        )
+        if self.reasoning_program_tokens < 0:
+            logger.warning(f"reasoning_program_tokens went negative ({self.reasoning_program_tokens}), resetting to 0")
+            self.reasoning_program_tokens = 0
+        if self.acting_program_tokens < 0:
+            logger.warning(f"acting_program_tokens went negative ({self.acting_program_tokens}), resetting to 0")
+            self.acting_program_tokens = 0
+        if self.active_program_tokens < 0:
+            logger.warning(f"active_program_tokens went negative ({self.active_program_tokens}), resetting to 0")
+            self.active_program_tokens = 0
     
     # Legacy methods for compatibility
     def add_program_tokens(self, tokens: int) -> None:
