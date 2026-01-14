@@ -18,7 +18,7 @@ METRICS_HISTORY_SIZE = 12
 
 # Buffer tokens reserved per program for decode phase
 DECODE_BUFFER = 512
-SHARED_TOKEN = 2500
+
 # Cooldown period (seconds) to prevent frequent pause/resume oscillation
 PAUSE_COOLDOWN = 5.0    # Wait after pausing before pausing more
 RESUME_COOLDOWN = 5.0   # Wait after resuming before resuming more
@@ -27,6 +27,9 @@ TOOL_COEFFICIENT = 1.0
 
 class BackendState:
     """State of a single VLLM backend with self-managed metrics monitoring."""
+
+    # Shared system prompt tokens across programs (estimated from first request)
+    shared_token: Optional[int] = None
     
     def __init__(self, url: str):
         self.url = url
@@ -98,7 +101,8 @@ class BackendState:
         
         tokens = self.active_program_tokens + extra_tokens
         count = self.active_program_count + extra_count
-        required = tokens + count * DECODE_BUFFER - max(0, (self.active_program_count + extra_count - 1)) * SHARED_TOKEN
+        shared_tokens = BackendState.shared_token or 0
+        required = tokens + count * DECODE_BUFFER - max(0, (self.active_program_count + extra_count - 1)) * shared_tokens
         return required <= self.cache_config.total_tokens_capacity
     
     def capacity_overflow(self, include_future_release: bool = False) -> int:
@@ -110,7 +114,8 @@ class BackendState:
         """
         if not self.cache_config:
             return 0
-        required = self.active_program_tokens + self.active_program_count * DECODE_BUFFER - max(0, (self.active_program_count - 1)) * SHARED_TOKEN
+        shared_tokens = BackendState.shared_token or 0
+        required = self.active_program_tokens + self.active_program_count * DECODE_BUFFER - max(0, (self.active_program_count - 1)) * shared_tokens
         if include_future_release:
             required -= self.future_paused_tokens
         overflow = required - self.cache_config.total_tokens_capacity

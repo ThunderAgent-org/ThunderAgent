@@ -110,6 +110,34 @@ class MultiBackendRouter:
     # Program State Management
     # -------------------------------------------------------------------------
 
+    @staticmethod
+    def _estimate_system_prompt_tokens(payload: Dict[str, Any]) -> int:
+        """Estimate system prompt tokens from the first request payload."""
+        messages = payload.get("messages")
+        if not isinstance(messages, list):
+            return 0
+        
+        parts: List[str] = []
+        for msg in messages:
+            if not isinstance(msg, dict) or msg.get("role") != "system":
+                continue
+            content = msg.get("content")
+            if isinstance(content, str):
+                parts.append(content)
+            elif isinstance(content, list):
+                for item in content:
+                    if not isinstance(item, dict):
+                        continue
+                    text = item.get("text") or item.get("input_text")
+                    if isinstance(text, str):
+                        parts.append(text)
+        
+        if not parts:
+            return 0
+        
+        text = "\n".join(parts)
+        return max(0, len(text) // 5)
+
     def get_or_create_program(self, program_id: str) -> ProgramState:
         """Get existing program or create new one assigned to least loaded backend."""
         if program_id not in self.programs:
@@ -146,6 +174,11 @@ class MultiBackendRouter:
             backend.shift_tokens_to_reasoning(state.total_tokens)
         
         is_new_program = state.step_count == 1
+
+        if is_new_program and BackendState.shared_token is None:
+            shared_tokens = self._estimate_system_prompt_tokens(payload)
+            BackendState.shared_token = shared_tokens
+            logger.info(f"Set SHARED_TOKEN={shared_tokens} from first request system prompt")
         
         # On first request, estimate total_tokens and add to total tracking
         if is_new_program:
