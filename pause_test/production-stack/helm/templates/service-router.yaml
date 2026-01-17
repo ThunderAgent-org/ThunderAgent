@@ -1,0 +1,26 @@
+{{- if .Values.routerSpec.enableRouter -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Release.Name }}-router-service"
+  namespace: {{ .Release.Namespace }}
+  {{- if .Values.routerSpec.serviceAnnotations }}
+  annotations: {{- toYaml .Values.routerSpec.serviceAnnotations | nindent 4 }}
+  {{- end }}
+  labels:
+  {{- include "chart.routerLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.routerSpec.serviceType }}
+  ports:
+    - name: "router-sport"
+      port: {{ .Values.routerSpec.servicePort }}
+      targetPort: {{ .Values.routerSpec.containerPort }}
+      protocol: TCP
+    - name: "lmcache-port"
+      port: 9000
+      targetPort: lmcache-port
+      protocol: TCP
+  {{- include "chart.routerExtraPorts" $ | nindent 4 }}
+  selector:
+  {{- include "chart.routerLabels" . | nindent 4 }}
+{{- end }}

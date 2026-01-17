@@ -1,0 +1,214 @@
+name: Router E2E tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/vllm_router/**'
+      - 'docker/**'
+      - 'pyproject.toml'
+      - '.github/**'
+  pull_request:
+    paths:
+      - 'src/vllm_router/**'
+      - 'docker/**'
+      - 'pyproject.toml'
+      - '.github/**'
+  workflow_dispatch:
+
+jobs:
+  e2e-test:
+    runs-on: self-hosted
+    if: github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          activate-environment: true
+
+      - name: Install dependencies
+        run: |
+          uv pip install --upgrade pip
+          uv pip install -e ".[semantic_cache,lmcache,test]"
+
+      - name: Make scripts executable
+        run: |
+          chmod +x src/vllm_router/perf-test.sh
+          chmod +x src/tests/perftest/*.sh
+
+      - name: Start Mock OpenAI servers
+        working-directory: src/tests/perftest
+        run: |
+          bash run-multi-server.sh 4 500
+          sleep 10
+
+      - name: Start Router for Testing
+        run: |
+          bash src/vllm_router/perf-test.sh 8000 &
+          sleep 5
+
+      - name: Run Performance tests
+        working-directory: src/tests/perftest
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          echo "PYTHONPATH=$PYTHONPATH"
+          mkdir -p logs
+          if [ ! -f "request_generator.py" ]; then
+            echo "Error: request_generator.py not found!"
+            exit 1
+          fi
+          # Run with Python debug option
+          python3 -v request_generator.py --qps 10 --num-workers 32 --duration 300 2>&1 | tee logs/request_generator.log
+
+      - name: Run E2E Tests with Coverage
+        run: |
+          uv pip install coverage
+          coverage run --source=src/vllm_router -m pytest src/tests/test_*.py
+          coverage report -m > coverage.txt
+
+      - name: Cleanup Test Environment
+        if: always()
+        working-directory: src/tests/perftest
+        run: |
+          bash clean-up.sh
+
+      - name: Upload Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.txt
+
+      - name: Upload Test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-pr-${{ github.event.pull_request.number || 'manual' }}
+          path: |
+            ~/.kube/config
+            src/tests/perftest/logs
+
+  k8s-discovery-e2e-test:
+    runs-on: self-hosted
+    needs: e2e-test
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup minikube environment
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          echo "🔧 Setting up minikube environment"
+          sudo sysctl fs.protected_regular=0
+          # Verify minikube is running
+          minikube status
+          # Ensure kubectl is configured for minikube
+          kubectl config use-context minikube
+
+      - name: Build and deploy router image
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          echo "🔨 Building router docker image"
+          cd ${{ github.workspace }}
+          eval "$(minikube docker-env)"
+          docker build -t git-act-router -f docker/Dockerfile .
+
+      - name: Run all k8s discovery routing tests
+        run: |
+          source /usr/local/bin/conda-init
+          conda activate llmstack
+          echo "🧪 Running all k8s discovery routing tests"
+          ./tests/e2e/run-k8s-routing-test.sh all \
+            --model "facebook/opt-125m" \
+            --num-requests 25 \
+            --chunk-size 128 \
+            --verbose \
+            --result-dir /tmp/k8s-discovery-routing-results-pr-${{ github.event.pull_request.number || 'main' }} \
+            --timeout 10
+        timeout-minutes: 10
+
+      - name: Archive k8s discovery routing test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k8s-discovery-routing-test-results-pr-${{ github.event.pull_request.number || 'main' }}
+          path: |
+            /tmp/k8s-discovery-routing-results-pr-${{ github.event.pull_request.number || 'main' }}/*
+
+      - run: echo "🍏 K8s discovery e2e test job status is ${{ job.status }}."
+
+  static-discovery-e2e-test:
+    runs-on: self-hosted
+    needs: e2e-test
+    if: github.event.pull_request.draft == false
+    env:
+      LOG_DIR: /tmp/static-discovery-e2e-test-${{ github.event.pull_request.number || 'main' }}
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          activate-environment: true
+
+      - name: Install Python dependencies
+        run: |
+          uv pip install --upgrade pip
+          uv pip install -e ".[semantic_cache,lmcache,test]"
+
+      - name: Start 2 vLLM serve backends
+        run: |
+          echo "🚀 Starting vLLM serve backend"
+          mkdir -p "$LOG_DIR"
+          CUDA_VISIBLE_DEVICES=0 vllm serve facebook/opt-125m --port 8001 --gpu-memory-utilization 0.7 --chat-template .github/template-chatml.jinja > "$LOG_DIR/backend1.log" 2>&1 &
+          CUDA_VISIBLE_DEVICES=1 vllm serve facebook/opt-125m --port 8002 --gpu-memory-utilization 0.7 --chat-template .github/template-chatml.jinja > "$LOG_DIR/backend2.log" 2>&1 &
+
+      - name: Wait for backends to be ready
+        run: |
+          echo "⏳ Waiting for backends to be ready"
+          chmod +x tests/e2e/wait-for-backends.sh
+          ./tests/e2e/wait-for-backends.sh 180 "http://localhost:8001" "http://localhost:8002"
+
+      - name: Run All Static Discovery Routing Tests
+        run: |
+          echo "🧪 Running all static discovery routing tests sequentially"
+          chmod +x tests/e2e/run-static-discovery-routing-test.sh
+          ./tests/e2e/run-static-discovery-routing-test.sh all \
+            --pythonpath "$PYTHONPATH" \
+            --log-dir "$LOG_DIR" \
+            --num-requests 20 \
+            --verbose \
+            --backends-url "http://localhost:8001,http://localhost:8002"
+        timeout-minutes: 5
+
+      - name: Archive static discovery test results and logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: static-discovery-test-results-pr-${{ github.event.pull_request.number || 'main' }}
+          path: |
+            ${{ env.LOG_DIR }}/*
+
+      - name: Cleanup processes
+        if: always()
+        run: |
+          echo "🧹 Cleaning up processes"
+          pkill -f "vllm serve" || true
+          pkill -f "python3 -m src.vllm_router.app" || true
+
+      - run: echo "🍏 Static discovery e2e test job status is ${{ job.status }}."

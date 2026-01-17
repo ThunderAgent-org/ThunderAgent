@@ -1,0 +1,75 @@
+{{- if .Values.cacheserverSpec -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Release.Name }}-deployment-cache-server"
+  namespace: {{ .Release.Namespace }}
+  labels:
+  {{- include "chart.cacheserverLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+    {{- include "chart.cacheserverLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+      {{- include "chart.cacheserverLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.cacheserverSpec.priorityClassName}}
+      priorityClassName: {{ .Values.cacheserverSpec.priorityClassName | quote }}
+      {{- end }}
+      {{- if not (empty .Values.cacheserverSpec.affinity) }}
+      affinity:
+        {{- toYaml .Values.cacheserverSpec.affinity | nindent 8 }}
+      {{- else if .Values.cacheserverSpec.nodeSelectorTerms}}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            {{- with .Values.cacheserverSpec.nodeSelectorTerms }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      {{- end }}
+      {{- with .Values.cacheserverSpec.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: "lmcache-server"
+          image: "{{ required "Required value 'cacheserverSpec.repository' must be defined !" .Values.cacheserverSpec.repository }}:{{ required "Required value 'cacheserverSpec.tag' must be defined !" .Values.cacheserverSpec.tag }}"
+          command:
+          - "/opt/venv/bin/lmcache_server"
+          - "0.0.0.0"
+          - "{{ .Values.cacheserverSpec.containerPort }}"
+          {{- if .Values.cacheserverSpec.resources }}
+          resources:
+            {{- if .Values.cacheserverSpec.resources.requests }}
+            requests:
+              cpu: "{{ .Values.cacheserverSpec.resources.requests.cpu }}"
+              memory: "{{ .Values.cacheserverSpec.resources.requests.memory }}"
+            {{- end }}
+            {{- if .Values.cacheserverSpec.resources.limits }}
+            limits:
+              cpu: "{{ .Values.cacheserverSpec.resources.limits.cpu }}"
+              memory: "{{ .Values.cacheserverSpec.resources.limits.memory }}"
+            {{- end }}
+          {{- end }}
+          ports:
+            - name: "caserver-cport"
+              containerPort: {{ .Values.cacheserverSpec.containerPort }}
+          imagePullPolicy: IfNotPresent
+          {{- if .Values.cacheserverSpec.livenessProbe }}
+          livenessProbe:
+            initialDelaySeconds: {{ .Values.cacheserverSpec.livenessProbe.initialDelaySeconds | default 30 }}
+            periodSeconds: {{ .Values.cacheserverSpec.livenessProbe.periodSeconds | default 10 }}
+            failureThreshold: {{ .Values.cacheserverSpec.livenessProbe.failureThreshold | default 3 }}
+            timeoutSeconds: {{ .Values.cacheserverSpec.livenessProbe.timeoutSeconds | default 5 }}
+            exec:
+              command:
+              - "/opt/venv/bin/python3"
+              - "/workspace/LMCache/examples/kubernetes/health_probe.py"
+              - "127.0.0.1"
+              - "{{ .Values.cacheserverSpec.containerPort }}"
+          {{- end }}
+{{- end -}}

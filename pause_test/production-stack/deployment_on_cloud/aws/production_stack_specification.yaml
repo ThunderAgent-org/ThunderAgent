@@ -1,0 +1,18 @@
+servingEngineSpec:
+  runtimeClassName: ""
+  modelSpec:
+  - name: "llama8b"
+    repository: "vllm/vllm-openai"
+    tag: "latest"
+    modelURL: "meta-llama/Llama-3.1-8B"
+
+    replicaCount: 2
+
+    requestCPU: 6
+    requestMemory: "16Gi"
+    requestGPU: 1
+    hf_token: HUGGINGFACE_TOKEN
+    pvcStorage: "40Gi"
+    pvcAccessMode:
+      - ReadWriteMany
+    storageClass: "" #This is to let helm pvc know it should be empty string

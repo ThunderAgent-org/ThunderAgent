@@ -132,7 +132,8 @@ class VllmModel:
             extra_body = {
                 "ignore_eos": False,
                 "job_id": str(job_id_value),
-                "is_last_step": is_last_step
+                "is_last_step": is_last_step,
+                "session_id": str(job_id_value),
             }
 
             return self.client.chat.completions.create(

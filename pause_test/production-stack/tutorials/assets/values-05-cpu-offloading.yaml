@@ -1,0 +1,22 @@
+servingEngineSpec:
+  runtimeClassName: ""
+  modelSpec:
+  - name: "mistral"
+    repository: "lmcache/vllm-openai"
+    tag: "latest"
+    modelURL: "mistralai/Mistral-7B-Instruct-v0.2"
+    replicaCount: 1
+    requestCPU: 10
+    requestMemory: "40Gi"
+    requestGPU: 1
+    pvcStorage: "50Gi"
+    pvcAccessMode:
+      - ReadWriteOnce
+    vllmConfig:
+      maxModelLen: 32000
+
+    lmcacheConfig:
+      enabled: true
+      cpuOffloadingBufferSize: "20"
+
+    hf_token: <hf-token>

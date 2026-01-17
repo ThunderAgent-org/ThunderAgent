@@ -1,0 +1,607 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "servingEngineSpec": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            }
+          }
+        },
+        "vllmApiKey": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "secretName": {
+                  "type": "string"
+                },
+                "secretKey": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "secretName",
+                "secretKey"
+              ]
+            }
+          ]
+        },
+        "modelSpec": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "annotations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "podAnnotations": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "name": {
+                "type": "string"
+              },
+              "repository": {
+                "type": "string"
+              },
+              "tag": {
+                "type": "string"
+              },
+              "imagePullSecret": {
+                "type": "string",
+                "description": "Name of secret with credentials to private container repository"
+              },
+              "modelURL": {
+                "type": "string"
+              },
+              "replicaCount": {
+                "type": "integer"
+              },
+              "requestCPU": {
+                "type": "integer"
+              },
+              "requestMemory": {
+                "type": "string"
+              },
+              "limitCPU": {
+                "type": "integer"
+              },
+              "limitMemory": {
+                "type": "string"
+              },
+              "requestGPU": {
+                "type": "integer"
+              },
+              "requestGPUType": {
+                "type": "string"
+              },
+              "requestGPUMem": {
+                "type": "string"
+              },
+              "requestGPUMemPercentage": {
+                "type": "string"
+              },
+              "requestGPUCores": {
+                "type": "string"
+              },
+              "limitGPUMem": {
+                "type": "string"
+              },
+              "limitGPUMemPercentage": {
+                "type": "string"
+              },
+              "limitGPUCores": {
+                "type": "string"
+              },
+              "priorityClassName": {
+                "type": "string"
+              },
+              "runtimeClassName": {
+                "type": "string"
+              },
+              "pvcStorage": {
+                "type": "string"
+              },
+              "pvcLabels": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "pvcMatchLabels": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "serviceAccountName": {
+                "type": "string"
+              },
+              "initContainer": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string"
+                  },
+                  "command": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "env": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "args": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "resources": {
+                    "type": "object",
+                    "properties": {
+                      "requests": {
+                        "type": "object",
+                        "properties": {
+                          "cpu": {
+                            "type": "string"
+                          },
+                          "memory": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "limits": {
+                        "type": "object",
+                        "properties": {
+                          "cpu": {
+                            "type": "string"
+                          },
+                          "memory": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "mountPvcStorage": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "vllmConfig": {
+                "type": "object",
+                "properties": {
+                  "enablePrefixCaching": {
+                    "type": "boolean"
+                  },
+                  "enableChunkedPrefill": {
+                    "type": "boolean"
+                  },
+                  "maxModelLen": {
+                    "type": "integer"
+                  },
+                  "dtype": {
+                    "type": "string"
+                  },
+                  "extraArgs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "lmcacheConfig": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "cpuOffloadingBufferSize": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "cpuOffloadingBufferSize"
+                ]
+              },
+              "hf_token": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "secretName": {
+                        "type": "string"
+                      },
+                      "secretKey": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "secretName",
+                      "secretKey"
+                    ]
+                  }
+                ]
+              },
+              "env": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "value"
+                  ]
+                }
+              },
+              "nodeName": {
+                "type": "string"
+              },
+              "nodeSelectorTerms": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "matchExpressions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "operator": {
+                            "type": "string"
+                          },
+                          "values": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "operator",
+                          "values"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "required": [
+              "name",
+              "repository",
+              "tag",
+              "modelURL",
+              "replicaCount",
+              "requestCPU",
+              "requestMemory",
+              "requestGPU",
+              "pvcStorage"
+            ]
+          }
+        },
+        "containerPort": {
+          "type": "integer"
+        },
+        "servicePort": {
+          "type": "integer"
+        },
+        "startupProbe": {
+          "type": "object",
+          "properties": {
+            "initialDelaySeconds": {
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "type": "integer"
+            },
+            "failureThreshold": {
+              "type": "integer"
+            },
+            "httpGet": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "port"
+              ]
+            }
+          }
+        },
+        "livenessProbe": {
+          "type": "object",
+          "properties": {
+            "initialDelaySeconds": {
+              "type": "integer"
+            },
+            "periodSeconds": {
+              "type": "integer"
+            },
+            "failureThreshold": {
+              "type": "integer"
+            },
+            "httpGet": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "port": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "path",
+                "port"
+              ]
+            }
+          }
+        },
+        "maxUnavailablePodDisruptionBudget": {
+          "type": "string"
+        },
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "operator": {
+                "type": "string"
+              },
+              "effect": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "runtimeClassName": {
+          "type": "string"
+        },
+        "schedulerName": {
+          "type": "string"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Pod-level security context configuration",
+          "additionalProperties": true
+        },
+        "containerSecurityContext": {
+          "type": "object",
+          "description": "Container-level security context configuration",
+          "additionalProperties": true
+        },
+        "extraPorts": {
+          "type": "array",
+          "description": "List of additional ports to expose from the serving engine container.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "appProtocol": {
+                "type": "string",
+                "description": "Application protocol for this port (e.g., 'http', 'https', 'grpc'). Used as a hint for implementations to offer richer behavior."
+              },
+              "name": {
+                "type": "string",
+                "description": "Name of the port. Must be unique within the service and conform to DNS label standards."
+              },
+              "nodePort": {
+                "type": "integer",
+                "description": "Port to expose on each node in a cluster."
+              },
+              "port": {
+                "type": "integer",
+                "description": "The port that will be exposed by this service.",
+                "minimum": 1,
+                "maximum": 65535
+              },
+              "protocol": {
+                "type": "string",
+                "enum": [
+                  "TCP",
+                  "UDP",
+                  "SCTP"
+                ],
+                "description": "Protocol for the port. Must be TCP, UDP, or SCTP. Defaults to TCP."
+              },
+              "targetPort": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "description": "Port number or name on the container to forward traffic to. If not specified, defaults to the value of 'port'."
+              }
+            },
+            "required": [
+              "port"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "routerSpec": {
+      "type": "object",
+      "properties": {
+        "replicaCount": {
+          "type": "integer"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "description": "Image pull secrets for private container registries",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["name"]
+          }
+        },
+        "autoscaling": {
+          "type": "object",
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "minReplicas": {"type": "integer"},
+            "maxReplicas": {"type": "integer"},
+            "targetCPUUtilizationPercentage": {"type": "integer"}
+          }
+        },
+        "containerPort": {
+          "type": "integer"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Pod-level security context configuration",
+          "additionalProperties": true
+        },
+        "containerSecurityContext": {
+          "type": "object",
+          "description": "Container-level security context configuration",
+          "additionalProperties": true
+        },
+
+        "servicePort": {
+          "type": "integer"
+        },
+        "serviceDiscovery": {
+          "type": "string",
+          "description": "Service discovery mode. Available values: k8s or static.",
+          "enum": ["k8s", "static"]
+        },
+        "k8sServiceDiscoveryType": {
+          "type": "string",
+          "description": "Kubernetes service discovery type. Available values: pod-ip and service-name.",
+          "enum": ["pod-ip", "service-name"]
+        },
+        "routingLogic": {
+          "type": "string"
+        },
+        "sessionKey": {
+          "type": "string"
+        },
+        "extraArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "engineScrapeInterval": {
+          "type": "integer"
+        },
+        "requestStatsWindow": {
+          "type": "integer"
+        },
+        "vllmApiKey": {
+          "type": "object",
+          "properties": {
+            "secretName": {
+              "type": "string"
+            },
+            "secretKey": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "secretName",
+            "secretKey"
+          ]
+        },
+        "labels": {
+          "type": "object",
+          "properties": {
+            "environment": {
+              "type": "string"
+            },
+            "release": {
+              "type": "string"
+            }
+          }
+        },
+        "podAnnotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "otel": {
+          "type": "object",
+          "description": "OpenTelemetry tracing configuration for the router",
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "description": "OTLP endpoint for tracing (e.g., 'otel-collector:4317'). Tracing is enabled when this is set."
+            },
+            "serviceName": {
+              "type": "string",
+              "description": "Service name for OpenTelemetry traces",
+              "default": "vllm-router"
+            },
+            "secure": {
+              "type": "boolean",
+              "description": "Use secure (TLS) connection for OTLP exporter",
+              "default": false
+            }
+          }
+        }
+      }
+    }
+  }
+}
