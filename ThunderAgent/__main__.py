@@ -1,12 +1,12 @@
-"""ThunderReact entry point for `python -m ThunderReact`."""
+"""ThunderAgent entry point for `python -m ThunderAgent`."""
 import argparse
 import sys
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="ThunderReact - Program State Tracking Proxy for vLLM",
-        prog="python -m ThunderReact",
+        description="ThunderAgent - Program State Tracking Proxy for vLLM",
+        prog="python -m ThunderAgent",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8300, help="Port to bind to")
@@ -17,7 +17,7 @@ def main() -> int:
                         help="Router mode: 'default' (pure proxy) or 'tr' (capacity scheduling)")
     parser.add_argument("--profile", action="store_true", 
                         help="Enable profiling (track prefill/decode/tool_call times)")
-    parser.add_argument("--profile-dir", default="/tmp/thunderreact_profiles", 
+    parser.add_argument("--profile-dir", default="/tmp/thunderagent_profiles", 
                         help="Directory for profile CSV output")
     parser.add_argument("--metrics", action="store_true",
                         help="Enable vLLM metrics monitoring")

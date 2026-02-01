@@ -1,5 +1,5 @@
 """
-ThunderReact - VLLM proxy with program state tracking.
+ThunderAgent - VLLM proxy with program state tracking.
 
 Module structure:
 - backend: Backend state management

@@ -1,11 +1,11 @@
-"""ThunderReact configuration."""
+"""ThunderAgent configuration."""
 from dataclasses import dataclass, field
 from typing import List
 
 
 @dataclass
 class Config:
-    """ThunderReact configuration (set via command line args)."""
+    """ThunderAgent configuration (set via command line args)."""
     # Backend configuration
     backends: List[str] = field(default_factory=lambda: ["http://localhost:8000"])
     
@@ -14,7 +14,7 @@ class Config:
     
     # Profile configuration
     profile_enabled: bool = False
-    profile_dir: str = "/tmp/thunderreact_profiles"
+    profile_dir: str = "/tmp/thunderagent_profiles"
     
     # Metrics monitoring configuration
     metrics_enabled: bool = False

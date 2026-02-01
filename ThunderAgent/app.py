@@ -1,4 +1,4 @@
-"""ThunderReact FastAPI application entry point."""
+"""ThunderAgent FastAPI application entry point."""
 import logging
 from typing import Any, Dict
 
@@ -26,7 +26,7 @@ def _create_router() -> MultiBackendRouter:
     )
 
 router = _create_router()
-app = FastAPI(title="ThunderReact - Program State Tracking Proxy")
+app = FastAPI(title="ThunderAgent - Program State Tracking Proxy")
 
 
 @app.on_event("startup")
