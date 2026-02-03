@@ -287,14 +287,37 @@ def prep_build_folder(
     )
 
     # Copy the 'skills' directory (Skills)
-    shutil.copytree(Path(project_root, 'skills'), Path(build_folder, 'code', 'skills'))
+    skills_src = Path(project_root, 'skills')
+    if skills_src.exists():
+        shutil.copytree(skills_src, Path(build_folder, 'code', 'skills'))
+    else:
+        # Dockerfile expects ./code/skills to exist in the build context.
+        Path(build_folder, 'code', 'skills').mkdir(parents=True, exist_ok=True)
+        logger.warning(
+            "Skills directory not found at %s; continuing without global skills.",
+            skills_src,
+        )
 
-    # Copy pyproject.toml and poetry.lock files
-    for file in ['pyproject.toml', 'poetry.lock']:
-        src = Path(openhands_source_dir, file)
-        if not src.exists():
-            src = Path(project_root, file)
-        shutil.copy2(src, Path(build_folder, 'code', file))
+    # Copy pyproject.toml and (optionally) a lock file.
+    # Some minimal deployments keep only uv.lock (or no lock file at all).
+    pyproject_src = Path(openhands_source_dir, 'pyproject.toml')
+    if not pyproject_src.exists():
+        pyproject_src = Path(project_root, 'pyproject.toml')
+    shutil.copy2(pyproject_src, Path(build_folder, 'code', 'pyproject.toml'))
+
+    lock_copied = False
+    for lock_name in ['poetry.lock', 'uv.lock']:
+        lock_src = Path(openhands_source_dir, lock_name)
+        if not lock_src.exists():
+            lock_src = Path(project_root, lock_name)
+        if lock_src.exists():
+            shutil.copy2(lock_src, Path(build_folder, 'code', lock_name))
+            lock_copied = True
+            break
+    if not lock_copied:
+        logger.warning(
+            'No lock file found (poetry.lock/uv.lock); dependency resolution may be non-reproducible.'
+        )
 
     # Create a Dockerfile and write it to build_folder
     dockerfile_content = _generate_dockerfile(
@@ -328,10 +351,12 @@ def get_hash_for_lock_files(base_image: str, enable_browser: bool = True) -> str
     # Only include enable_browser in hash when it's False for backward compatibility
     if not enable_browser:
         md5.update(str(enable_browser).encode())
-    for file in ['pyproject.toml', 'poetry.lock']:
+    for file in ['pyproject.toml', 'poetry.lock', 'uv.lock']:
         src = Path(openhands_source_dir, file)
         if not src.exists():
             src = Path(openhands_source_dir.parent, file)
+        if not src.exists():
+            continue
         with open(src, 'rb') as f:
             for chunk in iter(lambda: f.read(4096), b''):
                 md5.update(chunk)
