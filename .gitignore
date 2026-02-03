@@ -2,3 +2,120 @@ LangGraph_jiayi/.venv
 openhands_swebench/OpenHands/outputs/
 openhands_swebench/system_monitor.csv
 *.pyc
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Model weights (large files)
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.onnx
+Nemotron-Orchestrator-8B/
+out-of-date-scripts/
+profile_charts/
+smoke_test_oss/
+
+# Logs and outputs
+*.log
+*.out
+*.err
+logs/
+tmp_logs/
+expert_logs/
+node_modules/
+log_oss*/
+outputs/
+wandb/
+runs/
+tensorboard/
+outputs_oss_frames_*/
+outputs_oss_hle_*/
+outputs_oss*/
+logs_oss*/
+
+# Data files (optional - uncomment if needed)
+# *.jsonl
+# *.json
+# *.csv
+# *.parquet
+profile_analysis.json
+
+# PDM / Poetry
+.pdm.toml
+.pdm-python
+pdm.lock
+poetry.lock
+
+# Environment files
+.env
+.env.local
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+.cache/
+evaluation/cache/*
+
+# Coverage and testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+
+# Slurm job files
+slurm-*.out
+
+*.arrow
+evaluation/logs_oss/
+hle-serving-5090/
