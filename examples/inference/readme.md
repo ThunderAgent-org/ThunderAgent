@@ -13,6 +13,20 @@ This folder contains reproducible end-to-end guides for running SWE-bench evalua
 ### Intro
 Run the official [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) on SWE-Bench through ThunderAgent and vLLM.
 
+### Reproduction
+These scripts reproduce the results reported in our paper.
+
+Environment setup: [`setup.sh`](mini-swe-agent/scripts/setup/setup.sh).
+
+Test hardware: 8x H100 (NVIDIA driver 580.95.05 / CUDA 13.0).
+
+- [`reproduce_glm4.6`](mini-swe-agent/scripts/reproduce/reproduce_glm4.6): reproduce with GLM-4.6-FP8.
+- [`reproduce_qwen3_235B`](mini-swe-agent/scripts/reproduce/reproduce_qwen3_235B): reproduce with Qwen3-235B-A22B.
+
+Expected result (throughput comparison):
+![throughput_compare](docs/mini-swe-agent/figures/throughput_compare.png)
+
+
 ### Setup
 ```bash
 # Create and activate env
@@ -24,22 +38,8 @@ uv pip install vllm --torch-backend=auto
 uv pip install -e examples/inference/mini-swe-agent
 uv pip install datasets
 ```
-We also provide a one-click setup script: [`setup.sh`](mini-swe-agent/scripts/setup/setup.sh).
 
-
-### How to run the experiment
-
-
-#### Reproduction scripts
-
-Test hardware: 8x H100 (NVIDIA driver 580.95.05 / CUDA 13.0).
-
-- [`reproduce_glm4.6`](mini-swe-agent/scripts/reproduce/reproduce_glm4.6): end-to-end vLLM -> ThunderAgent -> mini-extra swebench for GLM-4.6-FP8.
-- [`reproduce_qwen3_235B`](mini-swe-agent/scripts/reproduce/reproduce_qwen3_235B): end-to-end vLLM -> ThunderAgent -> mini-extra swebench for Qwen3-235B-A22B.
-
-- Expected results:
-![throughput_compare](docs/mini-swe-agent/figures/throughput_compare.png)
-
+### How to run the experiment yourself
 
 #### One node example
 1) Start vLLM to serve the model:
@@ -88,21 +88,49 @@ mini-extra swebench \
 ```
 
 
-
-
-### What we changed (to reuse in your own setup)
+### What we changed in mini-swe-agent(to reuse in your own agent workflow)
 - **Program ID injection**  
   Location: [`swebench.py`](mini-swe-agent/src/minisweagent/run/benchmarks/swebench.py#L138) (`process_instance()`).  
   What: Assign a unique `program_id` per SWE-bench instance and pass it via `extra_body.program_id` on every model call.  
   Why: ThunderAgent uses this field to separate requests into per-program state (see [`get_program_id()` in app.py](../../ThunderAgent/app.py#L42)).
+  Implementation snippet (this is the concrete implementation of the logic above):
+  ```python
+  # Create a unique program_id per SWE-bench instance and attach it to every request via extra_body.
+  program_id = f"swe-{next(_PROGRAM_COUNTER):06d}"
+  # Copy model config to avoid cross-thread mutation when running multiple instances in parallel.
+  model_config = copy.deepcopy(config.get("model", {}))
+  # ThunderAgent reads program_id from payload.extra_body.program_id.
+  model_config.setdefault("model_kwargs", {}).setdefault("extra_body", {})["program_id"] = program_id
+  model = get_model(config=model_config)
+  ```
 
 - **Program release hook**  
   Location: [`swebench.py`](mini-swe-agent/src/minisweagent/run/benchmarks/swebench.py#L181) (`finally:`).  
   What: Send `POST /programs/release` to ThunderAgent with the same `program_id` after the instance finishes.  
   Why: Frees router-side bookkeeping (tokens / pause-resume state) so finished programs do not linger.
+  Implementation snippet (this is the concrete implementation of the logic above):
+  ```python
+  # Extract the base URL.
+  base_url = (
+      model.config.model_kwargs.get("api_base")
+      or model.config.model_kwargs.get("base_url")
+      or ""
+  ).rstrip("/")
+  # ThunderAgent exposes /programs/release (no /v1 prefix).
+  if base_url.endswith("/v1"):
+      base_url = base_url[:-3]
+  if base_url:
+      # Tell ThunderAgent to release this program_id to free router-side state.
+      requests.post(f"{base_url}/programs/release", json={"program_id": program_id}, timeout=5)
+  ```
 
 
 ## Repository Layout
+
+This tree summarizes the top-level structure under `examples/inference/`:
+- `mini-swe-agent/` contains the mini-swe-agent fork used in this guide: `src/` holds the Python package, and `scripts/` holds runnable helpers (`setup/` for environment setup and `reproduce/` for end-to-end runs).
+- `docs/` contains shared documentation assets used by the guide.
+
 ```text
 inference/
 |-- readme.md
