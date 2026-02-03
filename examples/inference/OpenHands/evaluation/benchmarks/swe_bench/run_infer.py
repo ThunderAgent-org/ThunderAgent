@@ -1,8 +1,11 @@
 import asyncio
 import copy
+import hashlib
 import json
 import os
 import tempfile
+import urllib.error
+import urllib.request
 from typing import Any, Literal
 
 import pandas as pd
@@ -612,105 +615,147 @@ def process_instance(
     reset_logger: bool = True,
     runtime_failure_count: int = 0,
 ) -> EvalOutput:
-    config = get_config(instance, metadata)
+    def _make_thunderagent_program_id(instance_id: str) -> str:
+        digest = hashlib.sha1(f'{instance_id}:{os.getpid()}'.encode('utf-8')).hexdigest()
+        return f'swe-{digest[:16]}'
 
-    # Setup the logger properly, so you can run multi-processing to parallelize the evaluation
-    if reset_logger:
-        log_dir = os.path.join(metadata.eval_output_dir, 'infer_logs')
-        reset_logger_for_multiprocessing(logger, instance.instance_id, log_dir)
-    else:
-        logger.info(f'Starting evaluation for instance {instance.instance_id}.')
+    def _release_thunderagent_program(base_url: str | None, program_id: str) -> None:
+        if not base_url:
+            return
+        url = base_url.rstrip('/')
+        if url.endswith('/v1'):
+            url = url[:-3]
+        release_url = f'{url}/programs/release'
+        try:
+            req = urllib.request.Request(
+                release_url,
+                data=json.dumps({'program_id': program_id}).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST',
+            )
+            with urllib.request.urlopen(req, timeout=5):
+                pass
+        except Exception as exc:
+            logger.warning(
+                f'ThunderAgent program release failed for {program_id}: {exc}'
+            )
 
-    # Increase resource_factor with increasing attempt_id
-    if runtime_failure_count > 0:
-        config.sandbox.remote_runtime_resource_factor = min(
-            config.sandbox.remote_runtime_resource_factor * (2**runtime_failure_count),
-            8,
-        )
-        logger.warning(
-            f'This is the {runtime_failure_count + 1}th attempt for instance {instance.instance_id}, setting resource factor to {config.sandbox.remote_runtime_resource_factor}'
-        )
-
-    metadata = copy.deepcopy(metadata)
-    metadata.details['runtime_failure_count'] = runtime_failure_count
-    metadata.details['remote_runtime_resource_factor'] = (
-        config.sandbox.remote_runtime_resource_factor
-    )
-
-    runtime = create_runtime(config)
-    call_async_from_sync(runtime.connect)
+    program_id = _make_thunderagent_program_id(str(instance.instance_id))
+    prev_program_id = os.environ.get('OPENHANDS_PROGRAM_ID')
+    os.environ['OPENHANDS_PROGRAM_ID'] = program_id
 
     try:
-        initialize_runtime(runtime, instance, metadata)
+        config = get_config(instance, metadata)
 
-        message_action = get_instruction(instance, metadata)
-
-        # Here's how you can run the agent (similar to the `main` function) and get the final task state
-        state: State | None = asyncio.run(
-            run_controller(
-                config=config,
-                initial_user_action=message_action,
-                runtime=runtime,
-                fake_user_response_fn=AGENT_CLS_TO_FAKE_USER_RESPONSE_FN[
-                    metadata.agent_class
-                ],
-            )
-        )
-
-        # if fatal error, throw EvalError to trigger re-run
-        if is_fatal_evaluation_error(state.last_error):
-            raise EvalException('Fatal error detected: ' + state.last_error)
-
-        # ======= THIS IS SWE-Bench specific =======
-        # Get git patch
-        if DATASET_TYPE == 'SWE-bench-Live':
-            from evaluation.benchmarks.swe_bench.live_utils import (
-                complete_runtime as complete_runtime_fn,
-            )
+        # Setup the logger properly, so you can run multi-processing to parallelize the evaluation
+        if reset_logger:
+            log_dir = os.path.join(metadata.eval_output_dir, 'infer_logs')
+            reset_logger_for_multiprocessing(logger, instance.instance_id, log_dir)
         else:
-            complete_runtime_fn = complete_runtime
-        return_val = complete_runtime_fn(runtime, instance)
-        git_patch = return_val['git_patch']
-        logger.info(
-            f'Got git diff for instance {instance.instance_id}:\n--------\n{git_patch}\n--------'
+            logger.info(f'Starting evaluation for instance {instance.instance_id}.')
+
+        # Increase resource_factor with increasing attempt_id
+        if runtime_failure_count > 0:
+            config.sandbox.remote_runtime_resource_factor = min(
+                config.sandbox.remote_runtime_resource_factor
+                * (2**runtime_failure_count),
+                8,
+            )
+            logger.warning(
+                f'This is the {runtime_failure_count + 1}th attempt for instance {instance.instance_id}, setting resource factor to {config.sandbox.remote_runtime_resource_factor}'
+            )
+
+        metadata = copy.deepcopy(metadata)
+        if metadata.details is None:
+            metadata.details = {}
+        metadata.details['runtime_failure_count'] = runtime_failure_count
+        metadata.details['remote_runtime_resource_factor'] = (
+            config.sandbox.remote_runtime_resource_factor
         )
+        metadata.details['program_id'] = program_id
+
+        runtime = create_runtime(config)
+        call_async_from_sync(runtime.connect)
+
+        try:
+            initialize_runtime(runtime, instance, metadata)
+
+            message_action = get_instruction(instance, metadata)
+
+            # Here's how you can run the agent (similar to the `main` function) and get the final task state
+            state: State | None = asyncio.run(
+                run_controller(
+                    config=config,
+                    initial_user_action=message_action,
+                    runtime=runtime,
+                    fake_user_response_fn=AGENT_CLS_TO_FAKE_USER_RESPONSE_FN[
+                        metadata.agent_class
+                    ],
+                )
+            )
+
+            # if fatal error, throw EvalError to trigger re-run
+            if is_fatal_evaluation_error(state.last_error):
+                raise EvalException('Fatal error detected: ' + state.last_error)
+
+            # ======= THIS IS SWE-Bench specific =======
+            # Get git patch
+            if DATASET_TYPE == 'SWE-bench-Live':
+                from evaluation.benchmarks.swe_bench.live_utils import (
+                    complete_runtime as complete_runtime_fn,
+                )
+            else:
+                complete_runtime_fn = complete_runtime
+            return_val = complete_runtime_fn(runtime, instance)
+            git_patch = return_val['git_patch']
+            logger.info(
+                f'Got git diff for instance {instance.instance_id}:\n--------\n{git_patch}\n--------'
+            )
+        finally:
+            runtime.close()
+        # ==========================================
+
+        # ======= Attempt to evaluate the agent's edits =======
+        # we use eval_infer.sh to evaluate the agent's edits, not here
+        # because the agent may alter the environment / testcases
+        test_result = {
+            'git_patch': git_patch,
+        }
+
+        # If you are working on some simpler benchmark that only evaluates the final model output (e.g., in a MessageAction)
+        # You can simply get the LAST `MessageAction` from the returned `state.history` and parse it for evaluation.
+        if state is None:
+            raise ValueError('State should not be None.')
+
+        # NOTE: this is NO LONGER the event stream, but an agent history that includes delegate agent's events
+        histories = [event_to_dict(event) for event in state.history]
+        metrics = get_metrics(state)
+
+        # Save the output
+        instruction = message_action.content
+        if message_action.image_urls:
+            instruction += (
+                '\n\n<image_urls>'
+                + '\n'.join(message_action.image_urls)
+                + '</image_urls>'
+            )
+        output = EvalOutput(
+            instance_id=instance.instance_id,
+            instruction=instruction,
+            instance=instance.to_dict(),  # SWE Bench specific
+            test_result=test_result,
+            metadata=metadata,
+            history=histories,
+            metrics=metrics,
+            error=state.last_error if state and state.last_error else None,
+        )
+        return output
     finally:
-        runtime.close()
-    # ==========================================
-
-    # ======= Attempt to evaluate the agent's edits =======
-    # we use eval_infer.sh to evaluate the agent's edits, not here
-    # because the agent may alter the environment / testcases
-    test_result = {
-        'git_patch': git_patch,
-    }
-
-    # If you are working on some simpler benchmark that only evaluates the final model output (e.g., in a MessageAction)
-    # You can simply get the LAST `MessageAction` from the returned `state.history` and parse it for evaluation.
-    if state is None:
-        raise ValueError('State should not be None.')
-
-    # NOTE: this is NO LONGER the event stream, but an agent history that includes delegate agent's events
-    histories = [event_to_dict(event) for event in state.history]
-    metrics = get_metrics(state)
-
-    # Save the output
-    instruction = message_action.content
-    if message_action.image_urls:
-        instruction += (
-            '\n\n<image_urls>' + '\n'.join(message_action.image_urls) + '</image_urls>'
-        )
-    output = EvalOutput(
-        instance_id=instance.instance_id,
-        instruction=instruction,
-        instance=instance.to_dict(),  # SWE Bench specific
-        test_result=test_result,
-        metadata=metadata,
-        history=histories,
-        metrics=metrics,
-        error=state.last_error if state and state.last_error else None,
-    )
-    return output
+        _release_thunderagent_program(metadata.llm_config.base_url, program_id)
+        if prev_program_id is None:
+            os.environ.pop('OPENHANDS_PROGRAM_ID', None)
+        else:
+            os.environ['OPENHANDS_PROGRAM_ID'] = prev_program_id
 
 
 def filter_dataset(dataset: pd.DataFrame, filter_column: str) -> pd.DataFrame:
