@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Reproduce script for Qwen3-235B-A22B-Instruct-2507 + vLLM + ThunderAgent + mini-swe-agent SWE-bench run.
+# Run from any directory. Logs are written next to this script.
+#
+# NOTE: Ensure `examples/inference/mini-swe-agent/src/minisweagent/config/benchmarks/swebench.yaml`
+# is consistent with this script (model name, api_base -> http://localhost:${TA_PORT}/v1, tool parser, etc.).
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../.." && pwd)"
+cd "${REPO_ROOT}"
+
+VLLM_PORT="${VLLM_PORT:-8100}"
+TA_PORT="${TA_PORT:-8000}"
+
+VLLM_HEALTH_URL="http://localhost:${VLLM_PORT}/health"
+TA_HEALTH_URL="http://localhost:${TA_PORT}/health"
+
+VLLM_LOG="${SCRIPT_DIR}/vllm_qwen3_${VLLM_PORT}.log"
+TA_LOG="${SCRIPT_DIR}/thunderagent_${TA_PORT}.log"
+
+cleanup() {
+  set +e
+  if [[ -n "${TA_PID:-}" ]] && kill -0 "${TA_PID}" 2>/dev/null; then
+    kill "${TA_PID}" 2>/dev/null
+  fi
+  if [[ -n "${VLLM_PID:-}" ]] && kill -0 "${VLLM_PID}" 2>/dev/null; then
+    kill "${VLLM_PID}" 2>/dev/null
+  fi
+}
+trap cleanup EXIT
+
+wait_for_health() {
+  local url="$1"
+  local name="$2"
+  local timeout_s="${3:-600}"
+
+  local start
+  start="$(date +%s)"
+
+  while true; do
+    local out=""
+    if out="$(curl -sS -m 2 "${url}" 2>&1)"; then
+      return 0
+    fi
+
+    local now
+    now="$(date +%s)"
+    if (( now - start >= timeout_s )); then
+      echo "[ERROR] ${name} health check failed: timeout after ${timeout_s}s" >&2
+      echo "[ERROR] last curl output: ${out}" >&2
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
+echo "[INFO] Starting vLLM on port ${VLLM_PORT} (log: ${VLLM_LOG})"
+nohup vllm serve /data/models/Qwen3-235B-A22B-Instruct-2507 \
+  --tensor-parallel-size 8 \
+  --kv_cache_dtype fp8 \
+  --quantization fp8 \
+  --enable-auto-tool-choice \
+  --tool-call-parser hermes \
+  --port "${VLLM_PORT}" \
+  >"${VLLM_LOG}" 2>&1 &
+VLLM_PID="$!"
+
+echo "[INFO] Waiting for vLLM health: ${VLLM_HEALTH_URL}"
+wait_for_health "${VLLM_HEALTH_URL}" "vLLM"
+
+echo "[INFO] Starting ThunderAgent on port ${TA_PORT} (log: ${TA_LOG})"
+nohup python -m ThunderAgent \
+  --backends "http://localhost:${VLLM_PORT}" \
+  --port "${TA_PORT}" \
+  >"${TA_LOG}" 2>&1 &
+TA_PID="$!"
+
+echo "[INFO] Waiting for ThunderAgent health: ${TA_HEALTH_URL}"
+wait_for_health "${TA_HEALTH_URL}" "ThunderAgent"
+
+echo "[INFO] Running mini-extra swebench"
+mini-extra swebench \
+  --subset lite \
+  --split test \
+  --workers 128 \
+  --output ./swebench_output
