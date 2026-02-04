@@ -1,86 +1,154 @@
-<a name="readme-top"></a>
+# OpenHands (code) + ThunderAgent Use Case
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/OpenHands/docs/main/openhands/static/img/logo.png" alt="Logo" width="200">
-  <h1 align="center" style="border-bottom: none">OpenHands: AI-Driven Development</h1>
-</div>
+## Overview
+This folder contains reproducible end-to-end guides for running SWE-bench evaluations with **ThunderAgent + vLLM** across  **OpenHands (code)**.
+
+![ThunderAgent overview](../docs/thunder/figures/thunder.jpg)
+
+## Prerequisites
+- Python 3.10 -- 3.13
+- [uv](https://docs.astral.sh/uv/) package manager
+- Docker daemon (SWE-bench instances run in Docker)
+- GPU(s) with appropriate CUDA drivers
+
+## Reproduction
+These scripts reproduce end-to-end runs with **vLLM + ThunderAgent + OpenHands (code)**.
+
+Environment setup: [`setup.sh`](scripts/setup/setup.sh).
+
+- [`reproduce_glm4.6`](scripts/reproduce/reproduce_glm4.6): reproduce with GLM-4.6-FP8.
+- [`reproduce_qwen3_235B`](scripts/reproduce/reproduce_qwen3_235B): reproduce with Qwen3-235B-A22B-Instruct-2507.
+
+Expected result (throughput comparison):
+![throughput_compare](../docs/openhands/figures/throughput_compare.png)
+
+## Setup
+```bash
+# Create and activate env
+uv venv --python 3.12
+source .venv/bin/activate
+
+# Install vLLM (GPU build) and OpenHands (code) in editable mode
+uv pip install vllm --torch-backend=auto
+uv pip install -e examples/inference/OpenHands
+```
+
+## How to run the experiment yourself
+
+### One node example
+1) Start vLLM to serve the model:
+```bash
+vllm serve <MODEL_NAME> --tensor-parallel-size <NUM_GPUS> --enable-auto-tool-choice --tool-call-parser <TOOL_PARSER> --port <VLLM_PORT>
+```
+
+2) Start ThunderAgent (pointing at your vLLM backend):
+```bash
+python -m ThunderAgent --backends http://localhost:<VLLM_PORT> --port <TA_PORT>
+```
+
+3) Configure `examples/inference/OpenHands/config.toml`.
+
+4) Run SWE-Bench via OpenHands through ThunderAgent:
+```bash
+cd examples/inference
+python -m evaluation.benchmarks.swe_bench.run_infer \
+  --config-file OpenHands/config.toml \
+  --llm-config vllm_local \
+  --agent-cls CodeActAgent \
+  --dataset princeton-nlp/SWE-bench_Lite \
+  --split test \
+  --max-iterations 50 \
+  --eval-num-workers 128 \
+  --eval-output-dir test
+```
+
+### Multi nodes example
+1) Start vLLM to serve the model:
+```bash
+vllm serve <MODEL_NAME> --tensor-parallel-size <NUM_GPUS> --enable-auto-tool-choice --tool-call-parser <TOOL_PARSER> --host 0.0.0.0 --port <VLLM_PORT>
+```
+
+```bash
+vllm serve <MODEL_NAME> --tensor-parallel-size <NUM_GPUS> --enable-auto-tool-choice --tool-call-parser <TOOL_PARSER> --host 0.0.0.0 --port <VLLM_PORT>
+```
+
+2) Start ThunderAgent (pointing at your vLLM backend):
+```bash
+python -m ThunderAgent --backends http://<VLLM_HOST1>:<VLLM_PORT>,http://<VLLM_HOST2>:<VLLM_PORT> --port <TA_PORT>
+```
+
+3) Configure `examples/inference/OpenHands/config.toml`.
+
+4) Run SWE-Bench via OpenHands through ThunderAgent:
+```bash
+cd examples/inference
+python -m evaluation.benchmarks.swe_bench.run_infer \
+  --config-file OpenHands/config.toml \
+  --llm-config vllm_local \
+  --agent-cls CodeActAgent \
+  --dataset princeton-nlp/SWE-bench_Lite \
+  --split test \
+  --max-iterations 50 \
+  --eval-num-workers 128 \
+  --eval-output-dir test
+```
+
+## What we changed in OpenHands(to reuse in your own agent workflow)
+- **Program ID injection**  
+  Location: [`run_infer.py`](evaluation/benchmarks/swe_bench/run_infer.py#L612) (`process_instance()`), plus [`llm.py`](openhands/llm/llm.py#L330).  
+
+  What: For each SWE-bench instance, compute `program_id = "swe-" + sha1(f"{instance_id}:{pid}")[:16]`, store it in `OPENHANDS_PROGRAM_ID`, and inject it into every LLM request via `extra_body.program_id`.  
+
+  Why: ThunderAgent reads `program_id` from request JSON (`payload.program_id` or `payload.extra_body.program_id`) to keep per-program routing state.  
+
+  Implementation snippet:
+  ```python
+  # run_infer.py: create per-instance program_id and export it
+  digest = hashlib.sha1(f"{instance_id}:{os.getpid()}".encode("utf-8")).hexdigest()
+  program_id = f"swe-{digest[:16]}"
+  os.environ["OPENHANDS_PROGRAM_ID"] = program_id
+
+  # llm.py: inject into each request
+  thunderagent_program_id = os.environ.get("OPENHANDS_PROGRAM_ID")
+  extra_body = kwargs.get("extra_body")
+  extra_body = extra_body.copy() if isinstance(extra_body, dict) else {}
+  extra_body["program_id"] = thunderagent_program_id
+  kwargs["extra_body"] = extra_body
+  ```
+
+- **Program release hook**  
+  Location: [`run_infer.py`](evaluation/benchmarks/swe_bench/run_infer.py#L753) (`finally:`).  
+
+  What: After the instance finishes (success or failure), send `POST /programs/release` to ThunderAgent with the same `program_id`.  
+
+  Why: Frees router-side bookkeeping (tokens / pause-resume state) so finished programs do not linger.
+
+  Implementation snippet:
+  ```python
+  # base_url is the same one used for LLM calls (usually ends with /v1)
+  # POST {base_url_without_/v1}/programs/release with {"program_id": program_id}
+  _release_thunderagent_program(metadata.llm_config.base_url, program_id)
+  ```
+
+## Repository Layout
+
+This tree summarizes the key paths used by this guide:
+- `OpenHands/` contains the OpenHands (code) checkout used in this guide: `config.toml` is the ThunderAgent+vLLM LLM config, `scripts/` has runnable helpers (`setup/` and `reproduce/`), and `evaluation/benchmarks/swe_bench/` is the SWE-bench harness entry.
 
 
-<div align="center">
-  <a href="https://github.com/OpenHands/OpenHands/blob/main/LICENSE"><img src="https://img.shields.io/badge/LICENSE-MIT-20B2AA?style=for-the-badge" alt="MIT License"></a>
-  <a href="https://docs.google.com/spreadsheets/d/1wOUdFCMyY6Nt0AIqF705KN4JKOWgeI4wUGUP60krXXs/edit?gid=811504672#gid=811504672"><img src="https://img.shields.io/badge/SWEBench-77.6-00cc00?logoColor=FFE165&style=for-the-badge" alt="Benchmark Score"></a>
-  <br/>
-  <a href="https://docs.openhands.dev/sdk"><img src="https://img.shields.io/badge/Documentation-000?logo=googledocs&logoColor=FFE165&style=for-the-badge" alt="Check out the documentation"></a>
-  <a href="https://arxiv.org/abs/2511.03690"><img src="https://img.shields.io/badge/Paper-000?logoColor=FFE165&logo=arxiv&style=for-the-badge" alt="Tech Report"></a>
-
-
-  <!-- Keep these links. Translations will automatically update with the README. -->
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=de">Deutsch</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=es">Español</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=fr">français</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=ja">日本語</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=ko">한국어</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=pt">Português</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=ru">Русский</a> |
-  <a href="https://www.readme-i18n.com/OpenHands/OpenHands?lang=zh">中文</a>
-
-</div>
-
-<hr>
-
-🙌 Welcome to OpenHands, a [community](COMMUNITY.md) focused on AI-driven development. We’d love for you to [join us on Slack](https://dub.sh/openhands).
-
-There are a few ways to work with OpenHands:
-
-### OpenHands Software Agent SDK
-The SDK is a composable Python library that contains all of our agentic tech. It's the engine that powers everything else below.
-
-Define agents in code, then run them locally, or scale to 1000s of agents in the cloud.
-
-[Check out the docs](https://docs.openhands.dev/sdk) or [view the source](https://github.com/OpenHands/software-agent-sdk/)
-
-### OpenHands CLI
-The CLI is the easiest way to start using OpenHands. The experience will be familiar to anyone who has worked
-with e.g. Claude Code or Codex. You can power it with Claude, GPT, or any other LLM.
-
-[Check out the docs](https://docs.openhands.dev/openhands/usage/run-openhands/cli-mode) or [view the source](https://github.com/OpenHands/OpenHands-CLI)
-
-### OpenHands Local GUI
-Use the Local GUI for running agents on your laptop. It comes with a REST API and a single-page React application.
-The experience will be familiar to anyone who has used Devin or Jules.
-
-[Check out the docs](https://docs.openhands.dev/openhands/usage/run-openhands/local-setup) or view the source in this repo.
-
-### OpenHands Cloud
-This is a deployment of OpenHands GUI, running on hosted infrastructure.
-
-You can try it with a free $10 credit by [signing in with your GitHub or GitLab account](https://app.all-hands.dev).
-
-OpenHands Cloud comes with source-available features and integrations:
-- Integrations with Slack, Jira, and Linear
-- Multi-user support
-- RBAC and permissions
-- Collaboration features (e.g., conversation sharing)
-
-### OpenHands Enterprise
-Large enterprises can work with us to self-host OpenHands Cloud in their own VPC, via Kubernetes.
-OpenHands Enterprise can also work with the CLI and SDK above.
-
-OpenHands Enterprise is source-available--you can see all the source code here in the enterprise/ directory,
-but you'll need to purchase a license if you want to run it for more than one month.
-
-Enterprise contracts also come with extended support and access to our research team.
-
-Learn more at [openhands.dev/enterprise](https://openhands.dev/enterprise)
-
-### Everything Else
-
-Check out our [Product Roadmap](https://github.com/orgs/openhands/projects/1), and feel free to
-[open up an issue](https://github.com/OpenHands/OpenHands/issues) if there's something you'd like to see!
-
-You might also be interested in our [evaluation infrastructure](https://github.com/OpenHands/benchmarks), our [chrome extension](https://github.com/OpenHands/openhands-chrome-extension/), or our [Theory-of-Mind module](https://github.com/OpenHands/ToM-SWE).
-
-All our work is available under the MIT license, except for the `enterprise/` directory in this repository (see the [enterprise license](enterprise/LICENSE) for details).
-The core `openhands` and `agent-server` Docker images are fully MIT-licensed as well.
-
-If you need help with anything, or just want to chat, [come find us on Slack](https://dub.sh/openhands).
+```text
+OpenHands/
+|-- config.toml
+|-- scripts/
+|   |-- setup/
+|   |   `-- setup.sh
+|   `-- reproduce/
+|       |-- reproduce_glm4.6
+|       `-- reproduce_qwen3_235B
+|-- evaluation/
+|   `-- benchmarks/
+|       `-- swe_bench/
+`-- openhands/
+    `-- llm/
+        `-- llm.py
+```
