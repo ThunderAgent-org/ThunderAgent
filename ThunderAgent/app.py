@@ -186,11 +186,15 @@ async def get_metrics():
     """Get vLLM metrics from all backends."""
     config = get_config()
     paused_counts = router.get_paused_counts_by_backend()
+    effective_by_backend = router.get_effective_backend_stats()
     return JSONResponse({
         "metrics_enabled": config.metrics_enabled,
         "metrics_interval": config.metrics_interval if config.metrics_enabled else None,
         "backends": {
-            url: backend.to_dict(paused_program_count=paused_counts.get(url, 0))
+            url: backend.to_dict(
+                paused_program_count=paused_counts.get(url, 0),
+                effective=effective_by_backend.get(url, {}),
+            )
             for url, backend in router.backends.items()
         },
     })

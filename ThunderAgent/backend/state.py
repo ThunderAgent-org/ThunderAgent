@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 METRICS_HISTORY_SIZE = 12
 
 # Buffer tokens reserved per program for decode phase
-DECODE_BUFFER = 512
+DECODE_BUFFER = 256
 
 # Cooldown period (seconds) to prevent frequent pause/resume oscillation
 PAUSE_COOLDOWN = 5.0    # Wait after pausing before pausing more
@@ -83,6 +83,66 @@ class BackendState:
         if not self.cache_config or self.cache_config.total_tokens_capacity == 0:
             return 0.0
         return self.active_program_tokens / self.cache_config.total_tokens_capacity
+
+    # -------------------------------------------------------------------------
+    # Capacity Math Helpers
+    # -------------------------------------------------------------------------
+
+    def required_tokens(
+        self,
+        *,
+        active_tokens: float,
+        active_count: int,
+        extra_tokens: float = 0.0,
+        extra_count: int = 0,
+    ) -> Optional[float]:
+        """Compute required KV tokens under the scheduling constraint.
+
+        Formula (with shared system prompt token reuse):
+          required = (active_tokens + extra_tokens)
+                     + (active_count + extra_count) * DECODE_BUFFER
+                     - max(0, (active_count + extra_count - 1)) * shared_tokens
+        """
+        if not self.cache_config:
+            return None
+        shared_tokens = BackendState.shared_token or 0
+        count = int(active_count) + int(extra_count)
+        tokens = float(active_tokens) + float(extra_tokens)
+        required = tokens + count * DECODE_BUFFER - max(0, count - 1) * shared_tokens
+        return required
+
+    def has_capacity_for(
+        self,
+        *,
+        active_tokens: float,
+        active_count: int,
+        extra_tokens: float = 0.0,
+        extra_count: int = 0,
+    ) -> bool:
+        required = self.required_tokens(
+            active_tokens=active_tokens,
+            active_count=active_count,
+            extra_tokens=extra_tokens,
+            extra_count=extra_count,
+        )
+        if required is None:
+            return True
+        return required <= float(self.cache_config.total_tokens_capacity)
+
+    def capacity_overflow_for(
+        self,
+        *,
+        active_tokens: float,
+        active_count: int,
+        include_future_release: bool = False,
+    ) -> float:
+        required = self.required_tokens(active_tokens=active_tokens, active_count=active_count)
+        if required is None or not self.cache_config:
+            return 0.0
+        if include_future_release:
+            required -= float(self.future_paused_tokens)
+        overflow = required - float(self.cache_config.total_tokens_capacity)
+        return max(0.0, overflow)
     
     # -------------------------------------------------------------------------
     # Capacity Check
@@ -328,7 +388,7 @@ class BackendState:
             self.healthy = False
             return False
     
-    def to_dict(self, *, paused_program_count: Optional[int] = None) -> dict:
+    def to_dict(self, *, paused_program_count: Optional[int] = None, effective: Optional[dict] = None) -> dict:
         """Convert to dict for API response."""
         if paused_program_count is None:
             paused_program_count = 0
@@ -348,6 +408,8 @@ class BackendState:
             "decode_buffer": DECODE_BUFFER,
             "capacity_overflow": self.capacity_overflow(),
         }
+        if effective:
+            result["effective"] = effective
         # Include cache config (static)
         if self.cache_config:
             result["cache_config"] = {
