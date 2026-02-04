@@ -108,26 +108,32 @@ python -m evaluation.benchmarks.swe_bench.run_infer \
 
   How it works: OpenHands routes model calls through `openhands/llm/llm.py`. By exporting `OPENHANDS_PROGRAM_ID` per SWE-bench instance in `run_infer.py`, we inject `extra_body.program_id` into every request payload. ThunderAgent uses this field to separate requests into per-program routing state.  
 
-  ```python
-  # openhands/llm/llm.py (inject into each request)
-  thunderagent_program_id = os.environ.get("OPENHANDS_PROGRAM_ID")
-  if thunderagent_program_id:
-      extra_body = kwargs.get("extra_body")
-      extra_body = extra_body.copy() if isinstance(extra_body, dict) else {}
-      extra_body["program_id"] = thunderagent_program_id
-      kwargs["extra_body"] = extra_body
+  **vLLM** vs **ThunderAgent**: the only request difference we rely on is adding `extra_body.program_id=<program_id>` on every call.
 
+  - **ThunderAgent**
+  ```python
+
+  # openhands/llm/llm.py
+  # Get program_id and attach it to every request.
+  extra_body["program_id"] = unique_id
+  kwargs["extra_body"] = extra_body
+
+  # Send the request with kwargs (including extra_body.program_id) via LiteLLM completion.
   resp = self._completion_unwrapped(*args, **kwargs)
   ```
 
+  - **vLLM**
+  
   ```python
-  # run_infer.py: create per-instance program_id and export it
-  digest = hashlib.sha1(f"{instance_id}:{os.getpid()}".encode("utf-8")).hexdigest()
-  program_id = f"swe-{digest[:16]}"
-  os.environ["OPENHANDS_PROGRAM_ID"] = program_id
+
+  # openhands/llm/llm.py 
+  # vLLM (direct): no ThunderAgent program_id injection
+  kwargs["extra_body"] = None
+  resp = self._completion_unwrapped(*args, **kwargs)
+
   ```
 
-  **vLLM** vs **ThunderAgent**: the only request difference we rely on is adding `extra_body.program_id=<program_id>` on every call.
+  
 
 - **Program release hook**  
   Location: [`run_infer.py`](evaluation/benchmarks/swe_bench/run_infer.py#L753) (`finally:`).  
