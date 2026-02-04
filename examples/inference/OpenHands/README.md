@@ -142,9 +142,18 @@ python -m evaluation.benchmarks.swe_bench.run_infer \
 
   Implementation snippet:
   ```python
-  # base_url is the same one used for LLM calls (usually ends with /v1)
-  # POST {base_url_without_/v1}/programs/release with {"program_id": program_id}
-  _release_thunderagent_program(metadata.llm_config.base_url, program_id)
+  # ThunderAgent exposes /programs/release (no /v1 prefix).
+  if base_url.endswith("/v1"):
+      base_url = base_url[:-3]
+  if base_url:
+      # Tell ThunderAgent to release this program_id to free router-side state.
+      req = urllib.request.Request(
+          f"{base_url}/programs/release",
+          data=json.dumps({"program_id": program_id}).encode("utf-8"),
+          headers={"Content-Type": "application/json"},
+          method="POST",
+      )
+      urllib.request.urlopen(req, timeout=5)
   ```
 
 ## Repository Layout
