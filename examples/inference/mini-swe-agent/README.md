@@ -96,25 +96,39 @@ mini-extra swebench \
 - **Program ID injection**  
   Location: [`swebench.py`](src/minisweagent/run/benchmarks/swebench.py#L138) (`process_instance()`), [`litellm_model.py`](src/minisweagent/models/litellm_model.py) (`litellm.completion(...)`).  
 
-  How it works: mini-swe-agent sends requests through `litellm.completion(...)`. By injecting `extra_body.program_id` into `model_kwargs`, we ensure the `program_id` is included in every request payload.
-
-  ```python
-  # src/minisweagent/models/litellm_model.py
-  litellm.completion(model=..., messages=..., tools=[...], **model_kwargs)
-  ```
-
-  ```python
-  # src/minisweagent/run/benchmarks/swebench.py
-  # Create a unique program_id per SWE-bench instance and attach it to every request via extra_body.
-  program_id = f"swe-{next(_PROGRAM_COUNTER):06d}"
-  # Copy model config to avoid cross-thread mutation when running multiple instances in parallel.
-  model_config = copy.deepcopy(config.get("model", {}))
-  # ThunderAgent reads program_id from payload.extra_body.program_id.
-  model_config.setdefault("model_kwargs", {}).setdefault("extra_body", {})["program_id"] = program_id
-  model = get_model(config=model_config)
-  ```
+  How it works: mini-swe-agent sends requests through `litellm.completion(...)`, with `model_kwargs` expanded into the request kwargs.
 
   **vLLM** vs **ThunderAgent**: the only `model_kwargs` difference we rely on is adding `extra_body.program_id=<program_id>` on every request.
+
+  - **ThunderAgent**
+  ```python
+  # src/minisweagent/run/benchmarks/swebench.py
+  model_config.setdefault("model_kwargs", {}).setdefault("extra_body", {})["program_id"] = unique_id
+
+
+  # src/minisweagent/models/litellm_model.py 
+  # send request with model_kwargs, incl. extra_body.program_id
+  return litellm.completion(
+      model=self.config.model_name,
+      messages=messages,
+      tools=[BASH_TOOL],
+      **(self.config.model_kwargs | kwargs),
+  )
+  ```
+
+  - **vLLM**
+  ```python
+  # src/minisweagent/run/benchmarks/swebench.py
+  model_config.setdefault("model_kwargs", {}).pop("extra_body", None)
+
+  # src/minisweagent/models/litellm_model.py
+  return litellm.completion(
+      model=self.config.model_name,
+      messages=messages,
+      tools=[BASH_TOOL],
+      **(self.config.model_kwargs | kwargs),
+  )
+  ```
 
 
 - **Program release hook**  
