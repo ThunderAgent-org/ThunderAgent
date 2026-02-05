@@ -656,7 +656,7 @@ class MultiBackendRouter:
         # Step 3: Fetch fresh metrics and update shared_tokens for next cycle
         for backend in self.backends.values():
             await backend.fetch_metrics()
-            backend.update_shared_tokens()
+            # backend.update_shared_tokens()  # Keep shared_tokens = 0 for conservative capacity
 
     async def _pause_until_safe(self, backend: BackendState):
         """Pause programs until backend is within capacity.
@@ -747,18 +747,7 @@ class MultiBackendRouter:
             for program_id, state, info in ordered_waiting:
                 # Find a backend that can fit this program
                 for i, (backend, remaining) in enumerate(backends_with_capacity):
-                    # Calculate future reasoning count after resume
-                    # New program (step=1) or REASONING programs will be in REASONING state
-                    will_be_reasoning = (state.step_count == 1 or info.paused_from_status == "reasoning")
-                    future_reasoning_count = backend.reasoning_program_count
-                    if will_be_reasoning:
-                        future_reasoning_count += 1
-                    
-                    # Reserve space for all REASONING programs' decode buffer
-                    # required = program_tokens + buffer_for_new_program + reserved_for_reasoning_decode
-                    reserved_for_reasoning = future_reasoning_count * BUFFER_PER_PROGRAM
-                    required = state.total_tokens + BUFFER_PER_PROGRAM + reserved_for_reasoning
-                    
+                    required = state.total_tokens + BUFFER_PER_PROGRAM
                     if remaining >= required:
                         # Resume to this backend
                         self.global_waiting_queue.pop(program_id, None)
