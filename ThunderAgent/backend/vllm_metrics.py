@@ -8,6 +8,8 @@ import time
 
 import httpx
 
+from .metrics_base import MetricsClient
+
 logger = logging.getLogger(__name__)
 
 
@@ -154,7 +156,7 @@ class VLLMMetrics:
 METRICS_HISTORY_SIZE = 12
 
 
-class VLLMMetricsClient:
+class VLLMMetricsClient(MetricsClient):
     """Client for fetching and managing metrics from a vLLM backend.
     
     Handles HTTP communication with vLLM /metrics endpoint,
@@ -162,7 +164,7 @@ class VLLMMetricsClient:
     """
     
     def __init__(self, url: str):
-        self.url = url
+        super().__init__(url)
         self.healthy = True
         self.metrics_history: List[VLLMMetrics] = []
         self.cache_config: Optional[VLLMCacheConfig] = None
@@ -339,4 +341,3 @@ class VLLMMetricsClient:
                 "history_size": len(self.metrics_history),
             }
         return result
-

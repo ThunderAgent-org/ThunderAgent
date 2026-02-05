@@ -2,6 +2,7 @@
 import logging
 from typing import Optional, Dict, TYPE_CHECKING
 
+from .metrics_base import MetricsClient
 from .vllm_metrics import VLLMMetricsClient
 
 if TYPE_CHECKING:
@@ -22,17 +23,24 @@ BUFFER_PER_PROGRAM = 100
 
 
 class BackendState:
-    """State of a single VLLM backend with metrics monitoring.
+    """State of a single backend with metrics monitoring.
     
-    Uses VLLMMetricsClient for all vLLM communication.
+    Uses a MetricsClient for backend communication and parsing.
     """
     
-    def __init__(self, url: str, tool_coefficient: float = DEFAULT_TOOL_COEFFICIENT):
+    def __init__(
+        self,
+        url: str,
+        tool_coefficient: float = DEFAULT_TOOL_COEFFICIENT,
+        metrics_client: Optional[MetricsClient] = None,
+    ):
         self.url = url
         self.tool_coefficient = tool_coefficient
         
-        # vLLM metrics client (handles all vLLM communication)
-        self.metrics_client = VLLMMetricsClient(url)
+        # Metrics client (handles backend communication and parsing)
+        if metrics_client is None:
+            metrics_client = VLLMMetricsClient(url)
+        self.metrics_client = metrics_client
         
         # Program tracking - all token stats are computed from this dict
         # Key is program_id (str), value is Program object

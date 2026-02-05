@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Callable, Awaitable, Tuple
 import httpx
 from fastapi.responses import Response
 
-from ..backend import BackendState
+from ..backend import BackendState, MetricsClient, SGLangMetricsClient, VLLMMetricsClient
 from ..program import Program, ProgramStatus, ProgramState
 from ..profile.state import ProfileState
 from ..config import get_config
@@ -37,6 +37,23 @@ class PausedInfo:
 class MultiBackendRouter:
     """Router with program state tracking, supports multiple backends."""
 
+    @staticmethod
+    def _create_metrics_client(backend_type: str, url: str) -> MetricsClient:
+        """Create a metrics client for the given backend type.
+        
+        Args:
+            backend_type: Backend type ("vllm" or "sglang")
+            url: Backend base URL
+        
+        Returns:
+            MetricsClient implementation for the backend type
+        """
+        if backend_type == "vllm":
+            return VLLMMetricsClient(url)
+        if backend_type == "sglang":
+            return SGLangMetricsClient(url)
+        raise ValueError(f"Unsupported backend_type: {backend_type}")
+
     def __init__(
         self, 
         backend_urls: str | List[str], 
@@ -44,6 +61,7 @@ class MultiBackendRouter:
         profile_enabled: bool = False,
         scheduling_enabled: bool = True,
         scheduler_interval: float = 5.0,
+        backend_type: str = "vllm",
         acting_token_weight: float = 1.0,
     ) -> None:
         # Support single URL string or list of URLs
@@ -54,9 +72,14 @@ class MultiBackendRouter:
         self.acting_token_weight = acting_token_weight
         
         # All backends (pass acting_token_weight as tool_coefficient)
-        self.backends: Dict[str, BackendState] = {
-            url: BackendState(url=url, tool_coefficient=acting_token_weight) for url in backend_urls
-        }
+        self.backends: Dict[str, BackendState] = {}
+        for url in backend_urls:
+            metrics_client = self._create_metrics_client(backend_type, url)
+            self.backends[url] = BackendState(
+                url=url,
+                tool_coefficient=acting_token_weight,
+                metrics_client=metrics_client,
+            )
         
         # All programs (single source of truth)
         # Key: program_id, Value: Program (which includes backend_url)
@@ -878,4 +901,3 @@ class MultiBackendRouter:
         """Proxy a GET request to a backend."""
         url = f"{backend_url.rstrip('/')}{path}"
         return await forward_get_request(self.client, url)
-

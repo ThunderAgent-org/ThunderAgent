@@ -15,6 +15,8 @@ def main() -> int:
                         help="Comma-separated list of vLLM backend URLs")
     parser.add_argument("--router", default="tr", choices=["default", "tr"],
                         help="Router mode: 'default' (pure proxy) or 'tr' (capacity scheduling)")
+    parser.add_argument("--backend-type", default="vllm", choices=["vllm", "sglang"],
+                        help="Backend type: 'vllm' or 'sglang'")
     parser.add_argument("--profile", action="store_true", 
                         help="Enable profiling (track prefill/decode/tool_call times)")
     parser.add_argument("--profile-dir", default="/tmp/thunderagent_profiles", 
@@ -36,6 +38,7 @@ def main() -> int:
     config = Config(
         backends=backends,
         router_mode=args.router,
+        backend_type=args.backend_type,
         profile_enabled=args.profile,
         profile_dir=args.profile_dir,
         metrics_enabled=args.metrics,
