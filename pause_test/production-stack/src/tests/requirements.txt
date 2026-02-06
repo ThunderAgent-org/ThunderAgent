@@ -1,5 +1,0 @@
-aiohttp
-fastapi
-openai
-uvicorn
-vllm

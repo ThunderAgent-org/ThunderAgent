@@ -9,26 +9,35 @@ if TYPE_CHECKING:
 
 
 class ProgramStatus(Enum):
-    """Status of a program.
+    """What the program is currently doing.
     
-    Lifecycle:
-        PAUSED -> REASONING (request starts, GPU inference)
-        REASONING -> ACTING (response received, executing tool)
-        ACTING -> REASONING (next request starts)
-        ACTING -> PAUSED (explicitly paused)
-        * -> STOPPED (program released)
+    REASONING: On GPU, running inference in vLLM
+    ACTING: Off GPU, executing tool or waiting for next request
     """
-    REASONING = "reasoning"  # On GPU, running inference
-    ACTING = "acting"        # Off GPU, executing tool
-    PAUSED = "paused"        # Waiting (not actively processing)
-    STOPPED = "stopped"      # Program completed/released
+    REASONING = "reasoning"
+    ACTING = "acting"
+
+
+class ProgramState(Enum):
+    """Lifecycle state of a program.
+    
+    ACTIVE: Program is running normally
+    PAUSED: Program is paused (waiting in queue)
+    TERMINATED: Program has completed/been released
+    """
+    ACTIVE = "active"
+    PAUSED = "paused"
+    TERMINATED = "terminated"
 
 
 @dataclass
-class ProgramState:
-    """State of a single program (task)."""
-    backend_url: str  # Which backend this program is assigned to
-    status: ProgramStatus = ProgramStatus.PAUSED
+class Program:
+    """A single program (task) with its status and state."""
+    program_id: str
+    backend_url: Optional[str] = None  # Which backend this program is assigned to (None if paused/waiting)
+    origin_backend: Optional[str] = None  # Backend URL before pause (for resume fallback)
+    status: ProgramStatus = ProgramStatus.ACTING  # What the program is doing (reasoning/acting)
+    state: ProgramState = ProgramState.ACTIVE  # Lifecycle state (active/paused/terminated)
     context_len: int = 0
     total_tokens: int = 0
     step_count: int = 0

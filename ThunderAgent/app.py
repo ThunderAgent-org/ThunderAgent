@@ -23,6 +23,9 @@ def _create_router() -> MultiBackendRouter:
         config.backends, 
         profile_enabled=config.profile_enabled,
         scheduling_enabled=(config.router_mode == "tr"),
+        scheduler_interval=config.scheduler_interval,
+        backend_type=config.backend_type,
+        acting_token_weight=config.acting_token_weight,
     )
 
 router = _create_router()
@@ -56,8 +59,7 @@ async def chat_completions(request: Request):
         payload = await request.json()
     except Exception as exc:
         raise HTTPException(status_code=400, detail="Invalid JSON") from exc
-
-    # Get or create program state (auto-assigns to least loaded backend)
+    # Get or create program state (new programs go to waiting queue)
     program_id = get_program_id(payload)
     program_state = router.get_or_create_program(program_id)
 
@@ -77,10 +79,14 @@ async def chat_completions(request: Request):
 
     # Callback to update state after response
     async def on_usage(total_tokens: int, prompt_tokens: int, cached_tokens: int) -> None:
-        await router.update_program_after_request(program_id, program_state, total_tokens)
+        router.update_program_after_request(program_id, program_state, total_tokens, prompt_tokens)
         # Profile: record request end with KV cache info
         if program_state.profile:
             program_state.profile.on_request_end(prompt_tokens, cached_tokens)
+
+    # Callback for streaming token progress updates (every 20 tokens)
+    def on_token_progress(delta_tokens: int) -> None:
+        router.update_program_tokens_streaming(program_state, delta_tokens)
 
     # Forward to vLLM (sticky unless rescheduled from the global paused pool)
     # Pass profile callbacks for token timing
@@ -89,6 +95,7 @@ async def chat_completions(request: Request):
         on_usage=on_usage,
         on_first_token=program_state.profile.on_first_token if program_state.profile else None,
         on_token=program_state.profile.on_token if program_state.profile else None,
+        on_token_progress=on_token_progress,
     )
 
 
@@ -103,6 +110,7 @@ async def list_programs():
             "total_tokens": state.total_tokens,
             "step_count": state.step_count,
             "status": state.status.value,
+            "state": state.state.value,
         }
         # Include profile data if available
         if state.profile:

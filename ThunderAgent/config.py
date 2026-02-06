@@ -11,6 +11,9 @@ class Config:
     
     # Router mode: "default" (pure proxy) or "tr" (capacity scheduling)
     router_mode: str = "tr"
+
+    # Backend type: "vllm" or "sglang"
+    backend_type: str = "vllm"
     
     # Profile configuration
     profile_enabled: bool = False
@@ -19,6 +22,10 @@ class Config:
     # Metrics monitoring configuration
     metrics_enabled: bool = False
     metrics_interval: float = 5.0  # seconds between metrics fetch
+    
+    # Scheduler configuration
+    scheduler_interval: float = 5.0  # seconds between scheduler checks
+    acting_token_weight: float = 1.0  # weight for acting tokens in capacity calculation
 
 
 # Global config instance (set by __main__.py before app starts)

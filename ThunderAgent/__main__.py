@@ -15,6 +15,8 @@ def main() -> int:
                         help="Comma-separated list of vLLM backend URLs")
     parser.add_argument("--router", default="tr", choices=["default", "tr"],
                         help="Router mode: 'default' (pure proxy) or 'tr' (capacity scheduling)")
+    parser.add_argument("--backend-type", default="vllm", choices=["vllm", "sglang"],
+                        help="Backend type: 'vllm' or 'sglang'")
     parser.add_argument("--profile", action="store_true", 
                         help="Enable profiling (track prefill/decode/tool_call times)")
     parser.add_argument("--profile-dir", default="/tmp/thunderagent_profiles", 
@@ -23,6 +25,10 @@ def main() -> int:
                         help="Enable vLLM metrics monitoring")
     parser.add_argument("--metrics-interval", type=float, default=5.0,
                         help="Interval in seconds between metrics fetches (default: 5.0)")
+    parser.add_argument("--scheduler-interval", type=float, default=5.0,
+                        help="Interval in seconds between scheduler checks (default: 5.0)")
+    parser.add_argument("--acting-token-weight", type=float, default=1.0,
+                        help="Weight for acting tokens in capacity calculation (default: 1.0)")
     args = parser.parse_args()
 
     # Set config BEFORE importing app
@@ -32,10 +38,13 @@ def main() -> int:
     config = Config(
         backends=backends,
         router_mode=args.router,
+        backend_type=args.backend_type,
         profile_enabled=args.profile,
         profile_dir=args.profile_dir,
         metrics_enabled=args.metrics,
         metrics_interval=args.metrics_interval,
+        scheduler_interval=args.scheduler_interval,
+        acting_token_weight=args.acting_token_weight,
     )
     set_config(config)
     
@@ -45,6 +54,10 @@ def main() -> int:
     
     if args.metrics:
         print(f"📈 Metrics monitoring enabled - interval: {args.metrics_interval}s")
+    
+    if args.router == "tr":
+        print(f"⏱️  Scheduler interval: {args.scheduler_interval}s")
+        print(f"⚖️  Acting token weight: {args.acting_token_weight}")
 
     # Import uvicorn here to avoid import errors if not installed
     try:
