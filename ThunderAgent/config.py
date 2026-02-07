@@ -26,6 +26,7 @@ class Config:
     # Scheduler configuration
     scheduler_interval: float = 5.0  # seconds between scheduler checks
     acting_token_weight: float = 1.0  # weight for acting tokens in capacity calculation
+    use_acting_token_decay: bool = False  # use 2^(-t) decay for acting tokens in resume logic
 
 
 # Global config instance (set by __main__.py before app starts)

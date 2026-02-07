@@ -44,3 +44,4 @@ class Program:
     profile: Optional["ProfileState"] = None  # Profile timing data (when profiling enabled)
     waiting_event: Optional[asyncio.Event] = field(default=None, repr=False)  # Event to wait on when paused
     marked_for_pause: bool = False  # Mark REASONING program to pause when it becomes ACTING
+    acting_since: Optional[float] = None  # time.time() when status changed to ACTING

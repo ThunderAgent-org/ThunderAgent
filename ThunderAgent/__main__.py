@@ -29,6 +29,8 @@ def main() -> int:
                         help="Interval in seconds between scheduler checks (default: 5.0)")
     parser.add_argument("--acting-token-weight", type=float, default=1.0,
                         help="Weight for acting tokens in capacity calculation (default: 1.0)")
+    parser.add_argument("--use-acting-token-decay", action="store_true",
+                        help="Use 2^(-t) decay for acting tokens in resume capacity calculation")
     args = parser.parse_args()
 
     # Set config BEFORE importing app
@@ -45,6 +47,7 @@ def main() -> int:
         metrics_interval=args.metrics_interval,
         scheduler_interval=args.scheduler_interval,
         acting_token_weight=args.acting_token_weight,
+        use_acting_token_decay=args.use_acting_token_decay,
     )
     set_config(config)
     
@@ -58,6 +61,8 @@ def main() -> int:
     if args.router == "tr":
         print(f"⏱️  Scheduler interval: {args.scheduler_interval}s")
         print(f"⚖️  Acting token weight: {args.acting_token_weight}")
+        if args.use_acting_token_decay:
+            print(f"📉 Acting token decay: enabled (2^-t)")
 
     # Import uvicorn here to avoid import errors if not installed
     try:

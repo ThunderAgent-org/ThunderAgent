@@ -26,6 +26,7 @@ def _create_router() -> MultiBackendRouter:
         scheduler_interval=config.scheduler_interval,
         backend_type=config.backend_type,
         acting_token_weight=config.acting_token_weight,
+        use_acting_token_decay=config.use_acting_token_decay,
     )
 
 router = _create_router()

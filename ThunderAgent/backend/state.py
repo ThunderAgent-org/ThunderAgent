@@ -1,5 +1,6 @@
 """Backend state management."""
 import logging
+import time
 from typing import Optional, Dict, TYPE_CHECKING
 
 from .metrics_base import MetricsClient
@@ -33,9 +34,11 @@ class BackendState:
         url: str,
         tool_coefficient: float = DEFAULT_TOOL_COEFFICIENT,
         metrics_client: Optional[MetricsClient] = None,
+        use_acting_token_decay: bool = False,
     ):
         self.url = url
         self.tool_coefficient = tool_coefficient
+        self.use_acting_token_decay = use_acting_token_decay
         
         # Metrics client (handles backend communication and parsing)
         if metrics_client is None:
@@ -186,7 +189,27 @@ class BackendState:
         buffer = self.active_program_count * BUFFER_PER_PROGRAM
         used = self.active_program_tokens - self.shared_tokens + buffer
         return self.cache_config.total_tokens_capacity - used
-    
+
+    def remaining_capacity_with_decay(self) -> int:
+        """Remaining capacity with exponential decay on acting tokens.
+
+        Each ACTING program's tokens are weighted by 2^(-t), where t is
+        seconds since entering ACTING. Used by resume logic to optimistically
+        estimate available capacity.
+        """
+        if not self.cache_config:
+            return float('inf')
+        now = time.time()
+        acting_decayed = 0.0
+        for p in self._programs.values():
+            if p.status == ProgramStatus.ACTING and p.acting_since is not None:
+                t = now - p.acting_since
+                acting_decayed += p.total_tokens * (2.0 ** -t)
+        effective_tokens = int(self.reasoning_program_tokens + acting_decayed)
+        buffer = self.active_program_count * BUFFER_PER_PROGRAM
+        used = effective_tokens - self.shared_tokens + buffer
+        return self.cache_config.total_tokens_capacity - used
+
     # -------------------------------------------------------------------------
     # Program Registration
     # -------------------------------------------------------------------------
