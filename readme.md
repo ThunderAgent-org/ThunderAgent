@@ -32,7 +32,7 @@ ThunderAgent is flexible and easy to use with:
 - Multiple agentic RL training example like [Search-R1](https://github.com/PeterGriffinJin/Search-R1) agent with [slime](https://github.com/THUDM/slime) and [mini-sweagent](https://github.com/SWE-agent/mini-swe-agent) with [SkyRL](https://github.com/NovaSky-AI/SkyRL).
 - Real-time visualization of agentic trajectory metrics including total tokens, tool-use time, and per-program profiling.
 
-### Architecture
+### Overview
 
 ThunderAgent sits between agent clients and the infrastructure layer as an agentic workflow scheduler. On one hand, it improves inference throughput of vLLM/SGLang across multiple GPU nodes through program-aware scheduling. On the other hand, it provides a unified tool management interface for resources like Docker containers and remote APIs.
 
@@ -46,16 +46,23 @@ ThunderAgent sits between agent clients and the infrastructure layer as an agent
                     │    ThunderAgent     │
                     └───┬─────────────┬───┘
                         │             │
-          ┌─────────────▼───┐   ┌─────▼─────────────┐
-          │  vLLM / SGLang  │   │  Tool Resources   │
-          │  (Inference)    │   │  (Docker, Search, │
-          └────────┬────────┘   │   Code Sandbox)   │
-                   │            └───────────────────┘
+          ┌─────────────▼───┐   ┌─────▼─────────────────────────┐
+          │  vLLM / SGLang  │   │  Tool Resources               │
+          │  (Inference)    │   │  (Docker, Search API)         │
+          └────────┬────────┘   └───────────────────────────────┘
           ┌────────▼────────┐
           │   GPU Nodes     │
           │  (Kubernetes)   │
           └─────────────────┘
 ```
+
+### Inference & Evaluation Results
+
+ThunderAgent improves vLLM throughput by **1.5–3.6×** across diverse agentic workloads including SWE-Agent, OpenHands, and ToolOrchestra.
+
+<p align="center">
+  <img alt="Inference Pipeline Results" src="assets/logos/infer_pipeline.png" width=90%>
+</p>
 
 ## Getting Started
 
