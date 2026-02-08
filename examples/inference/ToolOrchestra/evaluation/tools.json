@@ -1,0 +1,62 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "enhance_reasoning",
+      "description": "tool to enhance answer model reasoning. analyze the problem, write code, execute it and return intermidiate results that will help solve the problem",
+      "parameters": {
+        "properties": {
+          "model": {
+            "description": "The model used to reason. Choices: ['reasoner-1', 'reasoner-2', 'reasoner-3']. reasoner-1 demonstrates strong understanding and reasoning capabilities, which usually provides reliable insights. reasoner-2 can analyze some problems, but could hallucinate and make mistakes in difficult scenarios. reasoner-3 can reason over the context and reveal the logic. \nModel | price per million input tokens | price per million output tokens | average latency\nreasoner-1 | $1.25 | $10 | 31s\nreasoner-2 | $0.25 | $2 | 25s\nreasoner-3 | $0.8 | $0.8 | 9s",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "parameters",
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "answer",
+      "description": "give the final answer. Not allowed to call if documents is empty.",
+      "parameters": {
+        "properties": {
+          "model": {
+            "description": "The model used to answer. Choices: ['answer-1', 'answer-2', 'answer-3', 'answer-4', 'answer-math-1', 'answer-math-2']. answer-1 exhibits strong functional calling abilities and performs excellent in most domains (math, physics, social science, etc.). answer-2 presents reasonable solutions in some tasks, but could get stuck in complex reasoning and specific domain knowledge. answer-3 could solve easy to medium tasks, but is not capable of tackling tasks with strong expertise and long-horizon planning. answer-4 demonstrates basic capability: it can understand basic instructions, do simple steps, yet it sometimes misreads details, mixes concepts. answer-math-1 can solve moderate (middle school) math problem, though it becomes incapable in more difficult tasks. answer-math-2 can follow simple instructions and perform easy (primary-level) math problems, but struggle in more complex logic. The table below shows the pricing and latency of each model:\nModel | price per million input tokens | price per million output tokens | average latency\nanswer-1 | $1.25 | $10 | 96s\nanswer-2 | $0.25 | $2 | 27s\nanswer-3 | $0.9 | $0.9 | 15s\nanswer-4 | $0.8 | $0.8 | 11s\nanswer-math-1 | $0.9 | $0.9 | 13s\nanswer-math-2 | $$0.2 | $0.2 | 9s",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "parameters",
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search",
+      "description": "Search for missing information",
+      "parameters": {
+        "properties": {
+          "model": {
+            "description": "The model used to search for missing information. Choices: ['search-1', 'search-2', 'search-3']. search-1 usually identifies the missing information and can write concise queries for effective search. search-2 can reason over the context and write queries to find the missing content for answering questions. search-3 can also write queries to find information. The table below shows the pricing and latency:\nModel | price per million input tokens | price per million output tokens | average latency\nsearch-1 | $1.25 | $10 | 22s\nsearch-2 | $0.25 | $2 | 16s\nsearch-3 | $0.8 | $0.8 | 8s",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model"
+        ],
+        "title": "parameters",
+        "type": "object"
+      }
+    }
+  }
+]

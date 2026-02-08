@@ -1,0 +1,106 @@
+#!/bin/bash
+# Environment setup template for ToolOrchestra evaluation
+
+# ==============================================================================
+# Model and Repository Paths
+# ==============================================================================
+
+# Path to the agent model checkpoint (Orchestrator-8B)
+# Example: export CKPT_DIR="/data/models/Orchestrator-8B"
+export CKPT_DIR="${CKPT_DIR:-}"
+export REPO_PATH="/workspace/ThunderAgent/examples/inference/ToolOrchestra"
+export THUNDERAGENT_ROOT="${THUNDERAGENT_ROOT:-}"  # repo root that contains ThunderAgent/ and evaluation/
+
+# HuggingFace cache directory
+# NOTE: In Runpod/containers, $HOME is often on the small overlay filesystem.
+# Default HF cache to /workspace to avoid hitting /root quota during datasets/model downloads.
+# Example: export HF_HOME="/data/huggingface_cache"
+export HF_HOME="${HF_HOME:-}"
+export HF_TOKEN="${HF_TOKEN:-}"
+
+# User path for vLLM cache (used in original run.py)
+export USER_PATH="${USER_PATH:-$HOME}"
+
+# ==============================================================================
+# API Keys
+# ==============================================================================
+
+# OpenAI API Key (for gpt-5, gpt-5-mini, etc.)
+export OPENAI_API_KEY="${OPENAI_API_KEY:-}"
+
+# Together API Key (if using Together AI)
+export TOGETHER_API_KEY="${TOGETHER_API_KEY:-}"
+
+# Tavily Search API Key (for web search functionality)
+# Get your key at: https://app.tavily.com/home
+export TAVILY_KEY="${TAVILY_KEY:-}"
+
+# Index directory containing eval.index and eval.jsonl
+export INDEX_DIR="${INDEX_DIR:-}"
+
+# ==============================================================================
+# Validation
+# ==============================================================================
+
+echo "============================================================"
+echo "ToolOrchestra Environment Configuration (template)"
+echo "============================================================"
+echo "Paths:"
+echo "  REPO_PATH:  $REPO_PATH"
+echo "  THUNDERAGENT_ROOT: $THUNDERAGENT_ROOT"
+echo "  CKPT_DIR:   $CKPT_DIR"
+echo "  HF_HOME:    $HF_HOME"
+echo ""
+echo "API Keys (first 10 chars):"
+echo "  OPENAI_API_KEY:    ${OPENAI_API_KEY:0:10}... (user-llm: gpt-5)"
+echo "  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:0:10}... (user-llm: claude)"
+echo "  TOGETHER_API_KEY:  ${TOGETHER_API_KEY:0:10}... (Together AI)"
+echo "  TAVILY_KEY:        ${TAVILY_KEY:0:10}... (web search)"
+echo "  WANDB_API_KEY:     ${WANDB_API_KEY:0:10}... (experiment tracking)"
+echo "============================================================"
+
+# Check if required paths exist
+if [ -n "$REPO_PATH" ] && [ ! -d "$REPO_PATH" ]; then
+    echo "WARNING: REPO_PATH does not exist: $REPO_PATH"
+fi
+
+if [ -n "$CKPT_DIR" ] && [ ! -d "$CKPT_DIR" ]; then
+    echo "WARNING: CKPT_DIR does not exist: $CKPT_DIR"
+    echo "   Please download the model or update CKPT_DIR"
+fi
+
+# Check if conda environment is activated
+echo ""
+if [ -n "$CONDA_DEFAULT_ENV" ]; then
+    echo "✓ Conda environment: $CONDA_DEFAULT_ENV"
+    # Check for key packages
+    if command -v python &> /dev/null; then
+        PYTHON_VERSION=$(python --version 2>&1 | awk '{print $2}')
+        echo "✓ Python version: $PYTHON_VERSION"
+    fi
+    if python -c "import vllm" 2>/dev/null; then
+        VLLM_VERSION=$(python -c "import vllm; print(vllm.__version__)" 2>/dev/null)
+        echo "✓ vLLM installed: $VLLM_VERSION"
+    else
+        echo "WARNING: vLLM not installed in current environment"
+        echo "   Install: pip install vllm==0.9.2 or vllm==0.10.1"
+    fi
+else
+    echo "WARNING: No conda environment activated"
+    echo "   For eval, activate vllm1: conda activate vllm1"
+fi
+
+# Check GPU availability
+echo ""
+if command -v nvidia-smi &> /dev/null; then
+    GPU_COUNT=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+    if [ $GPU_COUNT -gt 0 ]; then
+        echo "✓ GPUs detected: $GPU_COUNT"
+        nvidia-smi --query-gpu=index,name,memory.total --format=csv,noheader 2>/dev/null | \
+            awk -F', ' '{printf "  GPU %s: %s (%s)\n", $1, $2, $3}'
+    else
+        echo "WARNING: No GPUs detected"
+    fi
+else
+    echo "WARNING: nvidia-smi not found"
+fi

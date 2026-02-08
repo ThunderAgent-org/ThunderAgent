@@ -1,0 +1,20 @@
+{
+  "retrieval": [
+    {
+      "ip_addr": "127.0.0.1",
+      "port": "1401"
+    }
+  ],
+  "Qwen/Qwen2.5-Math-72B-Instruct": [],
+  "Qwen/Qwen3-32B": [],
+  "Qwen/Qwen2.5-Math-7B-Instruct": [],
+  "meta-llama/Llama-3.3-70B-Instruct": [],
+  "/workspace/ckpt/nvidia/Nemotron-Orchestrator-8B": [
+    {
+      "ip_addr": "127.0.0.1",
+      "port": "8000"
+    }
+  ],
+  "Qwen/Qwen2.5-Coder-32B-Instruct": [],
+  "vllm_model_config_path": "/workspace/ThunderAgent/examples/inference/ToolOrchestra/evaluation/model_configs/hle_local_router.json"
+}
