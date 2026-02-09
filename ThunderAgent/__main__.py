@@ -30,7 +30,7 @@ def main() -> int:
     parser.add_argument("--acting-token-weight", type=float, default=1.0,
                         help="Weight for acting tokens in capacity calculation (default: 1.0)")
     parser.add_argument("--use-acting-token-decay", action="store_true",
-                        help="Use 2^(-t) decay for acting tokens in resume capacity calculation")
+                        help="Use 3^(-t) decay for acting tokens in resume capacity calculation")
     args = parser.parse_args()
 
     # Set config BEFORE importing app
@@ -62,7 +62,7 @@ def main() -> int:
         print(f"⏱️  Scheduler interval: {args.scheduler_interval}s")
         print(f"⚖️  Acting token weight: {args.acting_token_weight}")
         if args.use_acting_token_decay:
-            print(f"📉 Acting token decay: enabled (2^-t)")
+            print(f"📉 Acting token decay: enabled (3^-t)")
 
     # Import uvicorn here to avoid import errors if not installed
     try:

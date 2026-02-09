@@ -193,7 +193,7 @@ class BackendState:
     def remaining_capacity_with_decay(self) -> int:
         """Remaining capacity with exponential decay on acting tokens.
 
-        Each ACTING program's tokens are weighted by 2^(-t), where t is
+        Each ACTING program's tokens are weighted by 3^(-t), where t is
         seconds since entering ACTING. Used by resume logic to optimistically
         estimate available capacity.
         """
@@ -204,7 +204,7 @@ class BackendState:
         for p in self._programs.values():
             if p.status == ProgramStatus.ACTING and p.acting_since is not None:
                 t = now - p.acting_since
-                acting_decayed += p.total_tokens * (2.0 ** -t)
+                acting_decayed += p.total_tokens * (3.0 ** -t)
         effective_tokens = int(self.reasoning_program_tokens + acting_decayed)
         buffer = self.active_program_count * BUFFER_PER_PROGRAM
         used = effective_tokens - self.shared_tokens + buffer

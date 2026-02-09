@@ -70,6 +70,7 @@ class MultiBackendRouter:
         
         # Weight for acting tokens in capacity calculation
         self.acting_token_weight = acting_token_weight
+        self.use_acting_token_decay = use_acting_token_decay
         
         # All backends (pass acting_token_weight as tool_coefficient)
         self.backends: Dict[str, BackendState] = {}
@@ -164,6 +165,66 @@ class MultiBackendRouter:
     def get_default_backend(self) -> BackendState:
         """Get the first backend (for simple single-backend usage)."""
         return next(iter(self.backends.values()))
+
+    def list_backend_urls(self) -> List[str]:
+        """List backend URLs in insertion order."""
+        return list(self.backends.keys())
+
+    async def add_backend(self, url: str) -> bool:
+        """Add a backend at runtime.
+
+        Returns:
+            True if added, False if backend already exists.
+        """
+        normalized = url.rstrip("/")
+        if normalized in self.backends:
+            return False
+
+        config = get_config()
+        metrics_client = self._create_metrics_client(config.backend_type, normalized)
+        backend = BackendState(
+            url=normalized,
+            tool_coefficient=self.acting_token_weight,
+            metrics_client=metrics_client,
+            use_acting_token_decay=self.use_acting_token_decay,
+        )
+        self.backends[normalized] = backend
+
+        await backend.fetch_cache_config()
+        if config.metrics_enabled:
+            await backend.start_monitoring(config.metrics_interval)
+
+        logger.info(f"Added backend: {normalized}")
+        return True
+
+    async def remove_backend(self, url: str) -> bool:
+        """Remove a backend at runtime.
+
+        Returns:
+            True if removed, False if backend not found.
+
+        Raises:
+            ValueError: If backend still has active/paused programs.
+        """
+        normalized = url.rstrip("/")
+        backend = self.backends.get(normalized)
+        if backend is None:
+            return False
+
+        attached_programs = [
+            pid
+            for pid, state in self.programs.items()
+            if state.backend_url == normalized or state.origin_backend == normalized
+        ]
+        if attached_programs:
+            raise ValueError(
+                f"Cannot remove backend {normalized}: {len(attached_programs)} program(s) still attached."
+            )
+
+        await backend.stop_monitoring()
+        del self.backends[normalized]
+        logger.info(f"Removed backend: {normalized}")
+        return True
 
     def select_backend_for_new_program_default(self) -> BackendState:
         """Select the least loaded backend for a new program."""
@@ -488,18 +549,19 @@ class MultiBackendRouter:
 
     def _get_paused_programs_sorted(
         self, ascending: bool = True
-    ) -> List[Tuple[str, Program, PausedInfo]]:
+    ) -> List[Program]:
         """Get paused programs from the global pool, sorted by total_tokens.
 
         Callers that require consistency should hold pause_resume_lock.
         """
-        programs: List[Tuple[str, Program, PausedInfo]] = []
+        programs: List[Tuple[Program, PausedInfo]] = []
         for pid, info in self.global_waiting_queue.items():
             state = self.programs.get(pid)
             if not state:
                 continue
-            programs.append((pid, state, info))
-        return sorted(programs, key=lambda x: x[2].total_tokens, reverse=not ascending)
+            programs.append((state, info))
+        programs.sort(key=lambda x: x[1].total_tokens, reverse=not ascending)
+        return [state for state, _info in programs]
 
     def get_paused_counts_by_backend(self) -> Dict[str, int]:
         """Count paused programs per backend using paused pool metadata."""
@@ -666,14 +728,14 @@ class MultiBackendRouter:
                 logger.error(f"Scheduler error: {e}", exc_info=True)
 
     async def _scheduled_check(self):
-        """Periodic check: resume waiting programs, enforce capacity, update metrics."""
+        """Periodic check: resume waiting programs, then enforce capacity."""
         # Step 1: Fetch fresh metrics
         for backend in self.backends.values():
             await backend.fetch_metrics()
-        
+
         # Step 2: Resume waiting programs (uses decay-adjusted capacity if enabled)
         await self._greedy_resume()
-        
+
         # Step 3: Check thrashing and pause if needed (uses original capacity, no decay)
         for url, backend in self.backends.items():
             if backend.cache_config and backend.remaining_capacity() < 0:
@@ -956,3 +1018,10 @@ class MultiBackendRouter:
         """Proxy a GET request to a backend."""
         url = f"{backend_url.rstrip('/')}{path}"
         return await forward_get_request(self.client, url)
+
+    async def proxy_generate(self, backend: BackendState, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Proxy a SGLang /generate request to a specific backend."""
+        url = f"{backend.url}/generate"
+        response = await self.client.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
