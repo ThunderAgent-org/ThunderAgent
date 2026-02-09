@@ -146,7 +146,7 @@ grep "Finished: 'generate'" slurm-<JOBID>.err
 grep "avg_response_length" slurm-<JOBID>.err
 ```
 
-## Throughput Analysis (tokens/sec only)
+## Throughput Analysis
 After both jobs complete at least one rollout step:
 
 ```bash
