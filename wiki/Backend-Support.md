@@ -1,14 +1,14 @@
 # Backend Support
 
-ThunderAgent supports three inference backends. Each backend has a dedicated metrics client that handles communication, metrics parsing, and capacity discovery.
+ThunderAgent supports two inference serving backends — vLLM and SGLang — and also integrates with SkyRL, an RL training framework, by plugging into its rollout phase. Each backend type has a dedicated metrics client that handles communication, metrics parsing, and capacity discovery.
 
-## Supported Backends
+## Supported Backend Types
 
-| Backend | `--backend-type` | Metrics Format | Capacity Source |
-|---------|-----------------|----------------|-----------------|
-| [vLLM](https://github.com/vllm-project/vllm) | `vllm` | Prometheus text (`/metrics`) | `block_size * num_gpu_blocks` from `cache_config_info` |
-| [SGLang](https://github.com/sgl-project/sglang) | `sglang` | Prometheus text (`/metrics`) + JSON (`/get_server_info`) | `max_total_num_tokens` from server info |
-| [SkyRL](https://github.com/NovaSky-AI/SkyRL) | `skyrl` | JSON (`/metrics`) | Estimated from engine count (200K tokens/engine default) |
+| Backend | `--backend-type` | Type | Metrics Format | Capacity Source |
+|---------|-----------------|------|----------------|-----------------|
+| [vLLM](https://github.com/vllm-project/vllm) | `vllm` | Inference serving engine | Prometheus text (`/metrics`) | `block_size * num_gpu_blocks` from `cache_config_info` |
+| [SGLang](https://github.com/sgl-project/sglang) | `sglang` | Inference serving engine | Prometheus text (`/metrics`) + JSON (`/get_server_info`) | `max_total_num_tokens` from server info |
+| [SkyRL](https://github.com/NovaSky-AI/SkyRL) | `skyrl` | RL framework (rollout integration) | JSON (`/metrics`) | Estimated from engine count (200K tokens/engine default) |
 
 ## Architecture
 
@@ -81,7 +81,9 @@ Combines two endpoints:
 
 Extracts `max_total_num_tokens` from `/get_server_info` response. Falls back to checking `internal_states[].memory_usage.token_capacity`.
 
-## SkyRL Backend
+## SkyRL Integration
+
+[SkyRL](https://github.com/NovaSky-AI/SkyRL) is an RL training framework whose rollout phase uses vLLM's async LLM engine internally. ThunderAgent integrates into SkyRL's rollout pipeline as a scheduling proxy between rollout workers and the underlying vLLM engines. The `skyrl` backend type adapts to SkyRL's aggregated JSON metrics format (which differs from raw vLLM Prometheus metrics).
 
 ### Metrics Parsing
 
@@ -109,7 +111,7 @@ The client aggregates across all engines:
 
 ### Capacity Estimation
 
-SkyRL doesn't expose exact token capacity. The client estimates 200,000 tokens per engine as a default, which works because the scheduler primarily uses `kv_cache_usage_perc` for decisions.
+SkyRL's aggregated endpoint doesn't expose exact token capacity from the underlying vLLM engines. The client estimates 200,000 tokens per engine as a default, which works because the scheduler primarily uses `kv_cache_usage_perc` for decisions.
 
 ## Metrics Monitoring
 

@@ -17,5 +17,5 @@ Complete RL training pipelines with ThunderAgent:
 
 | Agent | Directory | Description |
 |-------|-----------|-------------|
-| Search-R1 Agent | [`rl_training/Search-R1`](rl_training) | RL training for search-augmented reasoning agent |
-| SWE Agent | [`rl_training/SWE`](rl_training) | RL training for software engineering agent |
+| Search-R1 Agent | [`rl_training/slime`](rl_training/slime/) | RL training for search-augmented reasoning agent |
+| SWE Agent | [`rl_training/SkyRL`](rl_training/SkyRL/) | RL training for software engineering agent |

@@ -11,29 +11,29 @@ ThunderAgent acts as a proxy layer between agentic clients and inference backend
          │
          ▼
 ┌─────────────────────┐
-│    ThunderAgent      │
+│    ThunderAgent     │
 │  ┌───────────────┐  │
-│  │   FastAPI App  │  │  Receives /v1/chat/completions
+│  │  FastAPI App  │  │  Receives /v1/chat/completions
 │  └───────┬───────┘  │
 │          │          │
 │  ┌───────▼───────┐  │
-│  │   Scheduler    │  │  Program-aware routing, pause/resume
-│  │   (Router)     │  │  Capacity-based scheduling (TR mode)
+│  │  Scheduler    │  │  Program-aware routing, pause/resume
+│  │  (Router)     │  │  Capacity-based scheduling (TR mode)
 │  └───────┬───────┘  │
 │          │          │
 │  ┌───────▼───────┐  │
-│  │  Backend State │  │  Per-backend token tracking, metrics
+│  │ Backend State │  │  Per-backend token tracking, metrics
 │  └───────┬───────┘  │
 │          │          │
 │  ┌───────▼───────┐  │
-│  │Program Tracker │  │  Per-program status, lifecycle, profiling
+│  │Program Tracker│  │  Per-program status, lifecycle, profiling
 │  └───────────────┘  │
 └────────┬────────────┘
          │
          ▼
 ┌─────────────────────┐
-│  Inference Backends  │  vLLM / SGLang / SkyRL
-│  (one or more GPUs)  │
+│ Inference Engines   │  vLLM / SGLang (serving)
+│ (one or more GPUs)  │  SkyRL (RL rollout via vLLM async engine)
 └─────────────────────┘
 ```
 
