@@ -8,9 +8,9 @@ Complete inference examples demonstrating ThunderAgent with various agentic fram
 
 | Agent | Directory | Description |
 |-------|-----------|-------------|
-| **SWE-Agent** | `examples/inference/mini-swe-agent` | Software engineering agent using [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) with Docker-based code sandboxes |
-| **OpenHands** | `examples/inference/OpenHands` | General software development and science discovery agent using [OpenHands](https://github.com/All-Hands-AI/OpenHands) |
-| **ToolOrchestra** | `examples/inference/ToolOrchestra` | Routing agent that orchestrates other sub-agents using [ToolOrchestra](https://github.com/NVlabs/ToolOrchestra) |
+| **SWE-Agent** | [`mini-swe-agent`](../examples/inference/mini-swe-agent) | Software engineering agent using [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) with Docker-based code sandboxes |
+| **OpenHands** | [`OpenHands`](../examples/inference/OpenHands) | General software development and science discovery agent using [OpenHands](https://github.com/All-Hands-AI/OpenHands) |
+| **ToolOrchestra** | [`ToolOrchestra`](../examples/inference/ToolOrchestra) | Routing agent that orchestrates other sub-agents using [ToolOrchestra](https://github.com/NVlabs/ToolOrchestra) |
 
 Each example includes:
 - Setup scripts and configuration
@@ -37,8 +37,8 @@ RL training pipelines that integrate ThunderAgent into the rollout phase for pro
 
 | Agent | Directory | Description |
 |-------|-----------|-------------|
-| **Search Agent** | `examples/rl_training/slime` | RL training for search-augmented reasoning using [slime](https://github.com/THUDM/slime) |
-| **SWE Agent** | `examples/rl_training/SkyRL` | RL training for software engineering agent using [SkyRL](https://github.com/NovaSky-AI/SkyRL) |
+| **Search Agent** | [`slime`](../examples/rl_training/slime) | RL training for search-augmented reasoning using [slime](https://github.com/THUDM/slime) |
+| **SWE Agent** | [`SkyRL`](../examples/rl_training/SkyRL) | RL training for software engineering agent using [SkyRL](https://github.com/NovaSky-AI/SkyRL) |
 
 The RL training examples demonstrate:
 - Integrating ThunderAgent's router into the rollout phase of [SkyRL](https://github.com/NovaSky-AI/SkyRL) (which uses vLLM's async LLM engine internally) and [slime](https://github.com/THUDM/slime) (which uses sglang inference engine) training frameworks
