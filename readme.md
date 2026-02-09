@@ -8,7 +8,7 @@ Fast, simple and program-aware agentic inference system.
 </h3>
 
 <p align="center">
-| <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> |
+| <a href="https://github.com/HaoKang-Timmy/ThunderAgent/tree/main/wiki"><b>Wiki</b></a> | <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://blog.vllm.ai/"><b>Blog</b></a> | <a href="https://arxiv.org/abs/2309.06180"><b>Paper</b></a> |
 </p>
 
 
