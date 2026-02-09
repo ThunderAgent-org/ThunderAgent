@@ -1,14 +1,14 @@
 """ThunderAgent FastAPI application entry point."""
 import logging
-from urllib.parse import unquote
 from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from .adapters import create_slime_adapter
 from .config import get_config
-from .scheduler import MultiBackendRouter
 from .program import ProgramStatus
+from .scheduler import MultiBackendRouter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,55 +54,19 @@ def get_program_id(payload: Dict[str, Any]) -> str:
     return "default"
 
 
-def _to_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+def _register_optional_adapters() -> None:
+    """Register optional protocol adapters based on runtime config."""
+    if get_config().enable_slime_adapter:
+        app.include_router(
+            create_slime_adapter(
+                state_router=router,
+                program_id_getter=get_program_id,
+                logger=logger,
+            )
+        )
 
 
-def _extract_sglang_usage(output: Dict[str, Any]) -> tuple[int, int, int]:
-    """Extract (total_tokens, prompt_tokens, cached_tokens) from SGLang /generate response."""
-    meta_info = output.get("meta_info", {})
-    if not isinstance(meta_info, dict):
-        meta_info = {}
-
-    prompt_tokens = _to_int(meta_info.get("prompt_tokens"), default=0)
-    cached_tokens = _to_int(meta_info.get("cached_tokens"), default=0)
-    completion_tokens = _to_int(meta_info.get("completion_tokens"), default=0)
-    if completion_tokens <= 0:
-        output_token_logprobs = meta_info.get("output_token_logprobs")
-        if isinstance(output_token_logprobs, list):
-            completion_tokens = len(output_token_logprobs)
-
-    total_tokens = _to_int(meta_info.get("total_tokens"), default=prompt_tokens + completion_tokens)
-    if total_tokens <= 0:
-        total_tokens = prompt_tokens + completion_tokens
-
-    return total_tokens, prompt_tokens, cached_tokens
-
-
-async def _extract_worker_url(request: Request) -> str:
-    """Get worker url from query string or JSON body."""
-    worker_url = request.query_params.get("url") or request.query_params.get("worker_url")
-    if worker_url:
-        return worker_url.rstrip("/")
-
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = {}
-    if isinstance(payload, dict):
-        worker_url = payload.get("url") or payload.get("worker_url")
-        if worker_url:
-            return str(worker_url).rstrip("/")
-
-    raise HTTPException(status_code=400, detail="worker_url is required (query ?url=... or JSON body).")
-
-
-def _format_workers() -> list[dict[str, Any]]:
-    urls = router.list_backend_urls()
-    return [{"id": idx, "url": url} for idx, url in enumerate(urls)]
+_register_optional_adapters()
 
 
 @app.post("/v1/chat/completions")
@@ -150,109 +114,6 @@ async def chat_completions(request: Request):
         on_token=program_state.profile.on_token if program_state.profile else None,
         on_token_progress=on_token_progress,
     )
-
-
-@app.post("/generate")
-async def sglang_generate(request: Request):
-    """Handle SGLang /generate requests while keeping TR pause/resume logic."""
-    try:
-        payload = await request.json()
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail="Invalid JSON") from exc
-
-    if not router.backends:
-        raise HTTPException(status_code=503, detail="No workers available. Add workers via /add_worker first.")
-
-    program_id = get_program_id(payload)
-    program_state = router.get_or_create_program(program_id)
-
-    if program_state.profile:
-        program_state.profile.on_request_arrive()
-
-    await router.update_program_before_request(program_id, program_state, payload)
-
-    if program_state.profile:
-        program_state.profile.on_request_start()
-
-    backend = router.get_backend_for_program(program_id)
-    try:
-        output = await router.proxy_generate(backend, payload)
-    except Exception as exc:
-        logger.exception("Failed to proxy /generate request to %s", backend.url)
-        raise HTTPException(status_code=502, detail=f"Backend generate request failed: {exc}") from exc
-
-    total_tokens, prompt_tokens, cached_tokens = _extract_sglang_usage(output)
-    router.update_program_after_request(program_id, program_state, total_tokens, prompt_tokens)
-    if program_state.profile:
-        program_state.profile.on_request_end(prompt_tokens, cached_tokens)
-
-    return JSONResponse(output)
-
-
-@app.post("/add_worker")
-async def add_worker(request: Request):
-    """SGLang-router compatible endpoint to add worker."""
-    worker_url = await _extract_worker_url(request)
-    added = await router.add_backend(worker_url)
-    return JSONResponse({"status": "success", "added": added, "worker_urls": router.list_backend_urls()})
-
-
-@app.post("/remove_worker")
-async def remove_worker(request: Request):
-    """SGLang-router compatible endpoint to remove worker."""
-    worker_url = await _extract_worker_url(request)
-    try:
-        removed = await router.remove_backend(worker_url)
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    if not removed:
-        raise HTTPException(status_code=404, detail=f"Worker not found: {worker_url}")
-
-    return JSONResponse({"status": "success", "removed": True, "worker_urls": router.list_backend_urls()})
-
-
-@app.get("/list_workers")
-async def list_workers():
-    """SGLang-router compatible endpoint to list workers."""
-    return JSONResponse({"urls": router.list_backend_urls()})
-
-
-@app.get("/workers")
-async def workers():
-    """Newer router-compatible worker listing endpoint."""
-    return JSONResponse({"workers": _format_workers()})
-
-
-@app.post("/workers")
-async def add_worker_v2(request: Request):
-    """Newer router-compatible worker add endpoint."""
-    worker_url = await _extract_worker_url(request)
-    added = await router.add_backend(worker_url)
-    return JSONResponse({"status": "success", "added": added, "workers": _format_workers()})
-
-
-@app.delete("/workers/{worker_ref}")
-async def remove_worker_v2(worker_ref: str):
-    """Newer router-compatible worker remove endpoint by id or url."""
-    worker_url: str | None = None
-    if worker_ref.isdigit():
-        idx = int(worker_ref)
-        workers = _format_workers()
-        if idx < 0 or idx >= len(workers):
-            raise HTTPException(status_code=404, detail=f"Worker id not found: {idx}")
-        worker_url = workers[idx]["url"]
-    else:
-        worker_url = unquote(worker_ref).rstrip("/")
-
-    try:
-        removed = await router.remove_backend(worker_url)
-    except ValueError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    if not removed:
-        raise HTTPException(status_code=404, detail=f"Worker not found: {worker_url}")
-    return JSONResponse({"status": "success", "removed": True, "workers": _format_workers()})
 
 
 @app.get("/programs")

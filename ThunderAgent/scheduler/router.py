@@ -1019,9 +1019,9 @@ class MultiBackendRouter:
         url = f"{backend_url.rstrip('/')}{path}"
         return await forward_get_request(self.client, url)
 
-    async def proxy_generate(self, backend: BackendState, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Proxy a SGLang /generate request to a specific backend."""
-        url = f"{backend.url}/generate"
+    async def proxy_json_post(self, backend: BackendState, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Proxy a JSON POST request to a specific backend path."""
+        url = f"{backend.url.rstrip('/')}/{path.lstrip('/')}"
         response = await self.client.post(url, json=payload)
         response.raise_for_status()
         return response.json()

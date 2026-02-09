@@ -14,6 +14,9 @@ class Config:
 
     # Backend type: "vllm" or "sglang"
     backend_type: str = "vllm"
+
+    # Adapter configuration
+    enable_slime_adapter: bool = False
     
     # Profile configuration
     profile_enabled: bool = False
