@@ -539,7 +539,7 @@
             </p>
 
             <div class="mt-4 text-center">
-              <img src="https://raw.githubusercontent.com/HaoKang-Timmy/ThunderAgent/main/assets/logos/arch.png" alt="ThunderAgent Architecture" class="max-w-full rounded" loading="lazy" />
+              <img src="public/arch.png" alt="ThunderAgent Architecture" class="max-w-full rounded" loading="lazy" />
             </div>
           </div>
 
@@ -647,7 +647,13 @@
               <img src="public/Routing.png" alt="Cross-Node Memory Imbalance Illustration" class="max-w-full rounded" loading="lazy" />
             </div>
             <p class="font-body text-xl text-gray-300 leading-relaxed">
-              In multi-node deployments, per-request load balancing ignores that workflows have different KV cache sizes and tool states spread across nodes. This leads to <span class="text-red-400 font-semibold">memory hotspots</span> on some nodes while others sit idle, reducing overall cluster utilization.
+              In multi-node deployments, a standalone gateway does not have full workflow-level system state, and during KV cache thrashing it cannot reliably determine whether a workflow's KV cache has already been evicted. As a result, it cannot make a good <span class="text-red-400 font-semibold">tradeoff</span> between KV-hit efficiency and workload balance. This often causes either <span class="text-red-400 font-semibold">memory hotspots</span> or <span class="text-red-400 font-semibold">low KV hit rate</span>, and only reaches suboptimal throughput.
+            </p>
+            <div class="mt-6 text-center">
+              <img src="public/mem_diff.png" alt="Memory imbalance observed when using the SGLang gateway" class="rounded" style="width:60%; height:auto; display:inline-block;" loading="lazy" />
+            </div>
+            <p class="font-body text-xl text-gray-300 leading-relaxed mt-6">
+              We evaluated GLM-4.6 + mini-SWE-Agent on 2 H100 nodes with the SGLang gateway: <span class="text-red-400 font-semibold">memory imbalance</span> emerges across nodes, reaching up to <span class="text-red-400 font-semibold">51%</span>.
             </p>
           </div>
 
@@ -655,6 +661,12 @@
           <div id="ch-panel-unrecycled" class="ch-panel bg-cyber-panel border border-t-0 border-cyber-border p-8 md:p-10 text-left hidden" style="border-top:none;">
             <p class="font-body text-xl text-gray-300 leading-relaxed">
               Agentic workflows spawn tool environments (Docker containers, sandboxes, API sessions) that persist long after the workflow completes. Without lifecycle-aware reclamation, these zombie resources consume disk and memory, leading to <span class="text-red-400 font-semibold">4× unnecessary storage overhead</span>.
+            </p>
+            <div class="mt-6 text-center">
+              <img src="public/disk_usage.png" alt="Disk usage growth caused by unrecycled tool resources" class="rounded" style="width:60%; height:auto; display:inline-block;" loading="lazy" />
+            </div>
+            <p class="font-body text-xl text-gray-300 leading-relaxed mt-6">
+              If tool resources are not reclaimed in time, disk pressure keeps accumulating until nodes hit <span class="text-red-400 font-semibold">storage bottlenecks</span>.
             </p>
           </div>
         </div>
@@ -678,6 +690,198 @@
           document.getElementById('ch-panel-' + tab).classList.remove('hidden');
         }
       </script>
+    </div>
+  </section>
+
+  <!-- ==================== PROGRAM ABSTRACTION DEFINITION ==================== -->
+  <section id="program-abstraction" class="relative px-6 py-20 overflow-hidden">
+    <div class="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-[#1a1a2e] to-transparent z-0"></div>
+
+    <div class="max-w-6xl mx-auto relative z-10">
+      <div class="text-center mb-16">
+        <span class="font-mono text-2xl text-cyber-yellow tracking-widest uppercase">// The Core Innovation: Program Abstraction</span>
+        <div class="h-line-yellow w-40 mx-auto mt-6 opacity-50"></div>
+        <p class="font-body text-xl text-gray-400 mt-6 max-w-3xl mx-auto">
+          Existing engines treat Agentic workflows as a stream of amnesiac requests.
+          ThunderAgent wraps them into a <span class="text-cyber-yellow font-bold">Stateful Program</span>.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+
+        <div class="flex flex-col gap-8">
+
+          <div class="bg-cyber-panel border border-cyber-border p-6 rounded opacity-60 hover:opacity-100 transition-opacity">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-heading text-lg text-gray-500">TRADITIONAL ENGINE VIEW</h3>
+              <span class="text-xs font-mono text-red-400 border border-red-400 px-2 py-1 rounded">STATELESS</span>
+            </div>
+            <div class="flex gap-2 overflow-hidden opacity-50">
+              <div class="w-16 h-16 border border-gray-600 flex items-center justify-center text-xs text-gray-500 rounded">Req #1</div>
+              <div class="w-16 h-16 border border-gray-600 flex items-center justify-center text-xs text-gray-500 rounded">Req #2</div>
+              <div class="w-16 h-16 border border-gray-600 flex items-center justify-center text-xs text-gray-500 rounded">Req #3</div>
+              <div class="w-16 h-16 border border-gray-600 flex items-center justify-center text-xs text-gray-500 rounded">Req #4</div>
+            </div>
+            <p class="text-sm font-mono text-gray-500 mt-3">
+              > System sees isolated events.<br>
+              > No knowledge of tool dependency or lifecycle.
+            </p>
+          </div>
+
+          <div class="bg-cyber-panel border border-cyber-yellow p-6 rounded relative box-glow-yellow">
+            <div class="flex justify-between items-center mb-4 mt-2">
+              <h3 class="font-heading text-lg text-gray-500">THUNDERAGENT VIEW</h3>
+              <span class="text-xs font-mono text-cyber-yellow border border-cyber-yellow px-2 py-1 rounded bg-yellow-900/20 animate-pulse">STATE AWARE</span>
+            </div>
+
+            <div class="py-4 border-t border-b border-cyber-border/50 bg-black/20 px-4 rounded space-y-5">
+              <div>
+                <p class="text-[10px] font-mono text-cyber-yellow/80 uppercase tracking-widest mb-2">Execution Phase (&tau;)</p>
+                <div class="relative flex items-center gap-3">
+                  <div class="absolute top-6 left-6 right-6 h-0.5 bg-cyber-yellow/30 -z-10"></div>
+
+                  <div class="flex flex-col items-center">
+                    <div class="w-12 h-12 bg-cyber-yellow/20 border border-cyber-yellow rounded-full flex items-center justify-center text-cyber-yellow font-bold">R</div>
+                    <span class="text-[10px] font-mono text-gray-400 mt-1">Reason</span>
+                  </div>
+                  <div class="text-cyber-yellow/50 font-mono text-sm">&rarr;</div>
+                  <div class="flex flex-col items-center">
+                    <div class="w-12 h-12 bg-blue-500/20 border border-blue-400 rounded-full flex items-center justify-center text-blue-400 font-bold">A</div>
+                    <span class="text-[10px] font-mono text-gray-400 mt-1">Act (Tool)</span>
+                  </div>
+                  <div class="text-cyber-yellow/50 font-mono text-sm">&rarr;</div>
+                  <div class="flex flex-col items-center">
+                    <div class="w-12 h-12 bg-cyber-yellow/20 border border-cyber-yellow rounded-full flex items-center justify-center text-cyber-yellow font-bold">R</div>
+                    <span class="text-[10px] font-mono text-gray-400 mt-1">Reason</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-[10px] font-mono text-cyber-yellow/80 uppercase tracking-widest mb-2">Scheduling Status (s)</p>
+                <div class="flex items-center gap-2 flex-wrap text-xs font-mono">
+                  <span class="px-3 py-1.5 rounded border border-green-400/50 bg-green-500/10 text-green-300">Active</span>
+                  <span class="text-gray-500">&rarr;</span>
+                  <span class="px-3 py-1.5 rounded border border-yellow-400/60 bg-yellow-500/10 text-yellow-300">Paused</span>
+                  <span class="text-gray-500">&rarr;</span>
+                  <span class="px-3 py-1.5 rounded border border-green-400/50 bg-green-500/10 text-green-300">Active</span>
+                  <span class="text-gray-500">&rarr;</span>
+                  <span class="px-3 py-1.5 rounded border border-red-400/60 bg-red-500/10 text-red-300">Terminated</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="text-sm font-mono text-gray-300 mt-3">
+              > Tracks phase + status transitions.
+            </p>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div class="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-transparent via-cyber-yellow to-transparent opacity-50"></div>
+
+          <h3 class="font-heading text-2xl text-white mb-6">
+            Defined as <span class="text-cyber-yellow font-mono">P = &langle; ID, c, &#119983;, &#8466;, &tau;, s &rangle;</span>
+          </h3>
+
+          <div class="space-y-4">
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-cyber-yellow text-xl">ID</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Program ID</h4>
+                <p class="text-sm text-gray-400">A unique ID to track which program a request belongs to.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-blue-400 text-xl">&tau;</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Execution Phase</h4>
+                <p class="text-sm text-gray-400">
+                  Distinguishes <span class="text-cyber-yellow">Reasoning</span> (GPU bound) from <span class="text-blue-400">Acting</span> (Tool bound).
+                </p>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-green-400 text-xl">s</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Scheduling Status</h4>
+                <p class="text-sm text-gray-400">Tracks if a program is <span class="text-green-400">Active</span>, <span class="text-yellow-500">Paused</span>, or <span class="text-red-500">Terminated</span>. Used to manage KV cache eviction and restoration.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-purple-400 text-xl">&#119983;</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Tool Resources</h4>
+                <p class="text-sm text-gray-400">Enables automatic garbage collection when the program terminates.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-cyan-400 text-xl">c</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Context length</h4>
+                <p class="text-sm text-gray-400">Represents program's context length for memory-pressure-aware scheduling.</p>
+              </div>
+            </div>
+
+            <div class="flex gap-4">
+              <div class="w-12 h-12 bg-cyber-panel border border-cyber-border flex items-center justify-center shrink-0">
+                <span class="font-mono text-fuchsia-400 text-xl">&#8466;</span>
+              </div>
+              <div>
+                <h4 class="font-bold text-gray-200">Backend url</h4>
+                <p class="text-sm text-gray-400">Which backend a program is currently assigned to.</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== OUR METHOD: DESIGN PHILOSOPHY ==================== -->
+  <section id="our-method" class="relative px-6 py-20">
+    <div class="max-w-6xl mx-auto">
+      <div class="text-center mb-12">
+        <span class="font-mono text-2xl text-cyber-gold tracking-widest uppercase">// Our Method: Design Philosophy</span>
+        <div class="h-line-gold w-40 mx-auto mt-6 opacity-50"></div>
+      </div>
+
+      <div class="w-full max-w-5xl mx-auto border border-cyber-border bg-cyber-panel p-8 md:p-10 text-left">
+        <p class="font-body text-xl text-gray-300 leading-relaxed">
+          Our method prioritizes <span class="text-cyber-gold font-semibold">program-aware scheduling</span>: decouple scheduling from execution backends, preserve workflow continuity across pauses and resumes, and jointly optimize throughput, KV-hit efficiency, and resource lifecycle management.
+        </p>
+        <div class="mt-6 text-center">
+          <img src="public/TR.png" alt="Our Method design philosophy illustration" class="w-full rounded" loading="lazy" />
+        </div>
+        <ol class="mt-6 space-y-4 list-decimal list-inside font-body text-xl text-gray-300 leading-relaxed">
+          <li>
+            Use the <span class="text-cyber-gold font-semibold">program abstraction</span> to define a pause/resume scheduler, and apply a time-decay factor to <span class="text-cyber-gold font-semibold">balance</span> KV cahce hit rate and GPU utilization, so the system reaches <span class="text-cyber-gold font-semibold">optimal throughput</span>.
+          </li>
+          <li>
+            Treat new and paused programs as <span class="text-cyber-gold font-semibold">low cache-value</span> traffic: new programs have little historical KV to reuse, and paused programs often have unstable or partially evicted KV after tool execution and waiting. Use these programs to <span class="text-cyber-gold font-semibold">improve cross-node load balance</span>.
+          </li>
+          <li>
+            Manage and reclaim tool resources from a <span class="text-cyber-gold font-semibold">program-level view</span>.
+          </li>
+        </ol>
+      </div>
     </div>
   </section>
 
