@@ -10,7 +10,7 @@ ThunderAgent is configured via command-line arguments passed to the `thunderagen
 | `--port` | `8300` | Port to bind the HTTP server to |
 | `--log-level` | `info` | Log level (`debug`, `info`, `warning`, `error`) |
 | `--backends` | `http://localhost:8000` | Comma-separated list of backend URLs |
-| `--backend-type` | `vllm` | Backend type: `vllm`, `sglang`, or `skyrl` |
+| `--backend-type` | `vllm` | Backend type: `vllm`, `sglang` (inference serving), or `skyrl` (RL rollout integration) |
 | `--router` | `tr` | Router mode: `default` (pure proxy) or `tr` (capacity scheduling) |
 | `--profile` | disabled | Enable per-program profiling (timing metrics) |
 | `--profile-dir` | `/tmp/thunderagent_profiles` | Directory for profile CSV output |
@@ -56,7 +56,7 @@ Internally, configuration is stored in a `Config` dataclass:
 class Config:
     backends: List[str]              # Backend URLs
     router_mode: str                 # "default" or "tr"
-    backend_type: str                # "vllm", "sglang", or "skyrl"
+    backend_type: str                # "vllm", "sglang" (serving), or "skyrl" (RL rollout)
     profile_enabled: bool            # Enable profiling
     profile_dir: str                 # CSV output directory
     metrics_enabled: bool            # Enable metrics monitoring

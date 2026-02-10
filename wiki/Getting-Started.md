@@ -3,7 +3,8 @@
 ## Prerequisites
 
 - Python >= 3.10
-- An inference backend: [vLLM](https://github.com/vllm-project/vllm), [SGLang](https://github.com/sgl-project/sglang), or [SkyRL](https://github.com/NovaSky-AI/SkyRL)
+- An inference serving engine: [vLLM](https://github.com/vllm-project/vllm) or [SGLang](https://github.com/sgl-project/sglang) 
+- Optional for agentic RL training: [slime](https://github.com/THUDM/slime) or [SkyRL](https://github.com/NovaSky-AI/SkyRL)
 
 ## Installation
 

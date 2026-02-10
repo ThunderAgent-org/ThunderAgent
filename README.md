@@ -29,7 +29,7 @@ ThunderAgent is flexible and easy to use with:
 - OpenAI-compatible API passthrough with only one changing, adding `Program_id` to the sending API.
 - Multiple inference support for [vLLM](https://github.com/vllm-project/vllm) and [SGLang](https://github.com/sgl-project/sglang)
 
-- Multiple agentic RL training example like [Search-R1](https://github.com/PeterGriffinJin/Search-R1) agent with [slime](https://github.com/THUDM/slime) and [mini-sweagent](https://github.com/SWE-agent/mini-swe-agent) with [SkyRL](https://github.com/NovaSky-AI/SkyRL).
+- Multiple agentic RL training example like [Search-R1](https://github.com/PeterGriffinJin/Search-R1) agent with [slime](https://github.com/THUDM/slime) and [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) with [SkyRL](https://github.com/NovaSky-AI/SkyRL).
 - Real-time visualization of agentic trajectory metrics including total tokens, tool-use time, and per-program profiling.
 
 ### Overview

@@ -14,20 +14,20 @@ Each program (identified by `program_id`) transitions through these states:
                   │            │                     executing tool)
                   └─────┬──────┘                          │
                         │                                 │
-                        │  capacity overflow               │  next request
-                        │  (mark for pause)                │  arrives
+                        │  capacity overflow              │  next request
+                        │  (mark for pause)               │  arrives
                         ▼                                 ▼
                   ┌────────────┐                    ┌────────────┐
                   │   MARKED   │──── becomes ──────►│   PAUSED   │
-                  │ FOR PAUSE  │     ACTING         │  (in queue) │
+                  │ FOR PAUSE  │     ACTING         │ (in queue) │
                   └────────────┘                    └─────┬──────┘
-                                                         │
-                                                         │  scheduler resumes
-                                                         ▼
-                                                   ┌────────────┐
-                                                   │  REASONING  │
-                                                   │  (resumed)  │
-                                                   └────────────┘
+                                                          │
+                                                          │  scheduler resumes
+                                                          ▼
+                                                    ┌────────────┐
+                                                    │  REASONING │
+                                                    │  (resumed) │
+                                                    └────────────┘
 ```
 
 ### Status vs State
