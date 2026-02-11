@@ -5,9 +5,10 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from .adapters import create_slime_adapter
 from .config import get_config
-from .scheduler import MultiBackendRouter
 from .program import ProgramStatus
+from .scheduler import MultiBackendRouter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,6 +52,21 @@ def get_program_id(payload: Dict[str, Any]) -> str:
     if isinstance(extra_body, dict) and "program_id" in extra_body:
         return str(extra_body["program_id"])
     return "default"
+
+
+def _register_optional_adapters() -> None:
+    """Register optional protocol adapters based on runtime config."""
+    if get_config().enable_slime_adapter:
+        app.include_router(
+            create_slime_adapter(
+                state_router=router,
+                program_id_getter=get_program_id,
+                logger=logger,
+            )
+        )
+
+
+_register_optional_adapters()
 
 
 @app.post("/v1/chat/completions")

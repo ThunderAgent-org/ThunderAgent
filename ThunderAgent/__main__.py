@@ -17,6 +17,8 @@ def main() -> int:
                         help="Router mode: 'default' (pure proxy) or 'tr' (capacity scheduling)")
     parser.add_argument("--backend-type", default="vllm", choices=["vllm", "sglang"],
                         help="Backend type: 'vllm' or 'sglang'")
+    parser.add_argument("--enable-slime-adapter", action="store_true",
+                        help="Enable Slime-compatible adapter endpoints (/generate, /workers, etc.)")
     parser.add_argument("--profile", action="store_true", 
                         help="Enable profiling (track prefill/decode/tool_call times)")
     parser.add_argument("--profile-dir", default="/tmp/thunderagent_profiles", 
@@ -41,6 +43,7 @@ def main() -> int:
         backends=backends,
         router_mode=args.router,
         backend_type=args.backend_type,
+        enable_slime_adapter=args.enable_slime_adapter,
         profile_enabled=args.profile,
         profile_dir=args.profile_dir,
         metrics_enabled=args.metrics,
@@ -54,6 +57,9 @@ def main() -> int:
     print(f"🚀 Router mode: {args.router}")
     if args.profile:
         print(f"📊 Profiling enabled - CSV output: {args.profile_dir}/step_profiles.csv")
+
+    if args.enable_slime_adapter:
+        print("🧩 Slime adapter enabled")
     
     if args.metrics:
         print(f"📈 Metrics monitoring enabled - interval: {args.metrics_interval}s")
