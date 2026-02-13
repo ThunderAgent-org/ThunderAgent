@@ -1476,42 +1476,42 @@
               <div
                 class="bg-[var(--color-bg-base)] border border-cyber-border p-8 md:p-12 rounded-lg shadow-inner flex flex-col items-center">
 
-                <h3 class="font-heading text-2xl text-[var(--color-text-main)] mb-4 text-center max-w-3xl mx-auto">
+                <h3 class="font-heading text-3xl text-[var(--color-text-main)] mb-5 text-center max-w-3xl mx-auto">
                   From Request-Aware to Program-Aware</h3>
                 <p
-                  class="font-body text-lg text-[var(--color-text-main)] opacity-90 leading-relaxed text-center max-w-2xl mx-auto mb-10">
+                  class="font-body text-xl text-[var(--color-text-main)] opacity-90 leading-relaxed text-center max-w-2xl mx-auto mb-10">
                   With program abstraction, the serving system sees <span class="text-cyber-yellow font-bold">stateful
                     programs</span> instead of isolated requests, unlocking scheduling decisions that were
                   previously impossible.
                 </p>
 
-                <div class="flex flex-col gap-12 w-full max-w-3xl">
+                <div class="flex flex-col gap-10 w-full max-w-3xl">
                   <!-- Old Way -->
                   <div class="group">
                     <div
-                      class="flex justify-between items-end text-base font-mono text-[var(--color-text-main)] opacity-70 mb-3 uppercase tracking-widest border-b border-dashed border-[var(--color-text-main)]/40 pb-1">
+                      class="flex justify-between items-end text-xl font-mono text-[var(--color-text-main)] opacity-70 mb-3 uppercase tracking-widest border-b border-dashed border-[var(--color-text-main)]/40 pb-2">
                       <span>Request-Aware System</span>
                       <span class="text-[var(--color-status-red)] group-hover:text-red-400 transition-colors">Stateless
                         Requests</span>
                     </div>
                     <div class="flex gap-4 mb-3">
                       <div
-                        class="h-20 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-lg font-mono">
+                        class="h-24 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-xl font-mono">
                         Req1</div>
                       <div
-                        class="h-20 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-lg font-mono">
+                        class="h-24 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-xl font-mono">
                         Req2</div>
                       <div
-                        class="h-20 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-lg font-mono">
+                        class="h-24 flex-1 border-2 border-[var(--color-text-main)]/40 border-dashed rounded-lg flex items-center justify-center text-[var(--color-text-main)] opacity-50 text-xl font-mono">
                         Req3</div>
                     </div>
-                    <p class="text-sm text-[var(--color-text-main)] opacity-60 font-body italic text-center">No knowledge of which
+                    <p class="text-xl text-[var(--color-text-main)] opacity-60 font-body italic text-center">No knowledge of which
                       requests belong together, when GPU is idle, or how to balance across nodes</p>
                   </div>
 
                   <!-- Arrow down -->
                   <div class="flex justify-center text-[var(--color-text-muted)]">
-                    <svg class="w-10 h-10 animate-bounce opacity-70" fill="none" stroke="currentColor"
+                    <svg class="w-12 h-12 animate-bounce opacity-70" fill="none" stroke="currentColor"
                       viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
@@ -1521,7 +1521,7 @@
                   <!-- New Way -->
                   <div class="group">
                     <div
-                      class="flex justify-between items-end text-sm font-mono text-cyber-yellow mb-3 uppercase tracking-widest border-b border-cyber-yellow pb-1">
+                      class="flex justify-between items-end text-xl font-mono text-cyber-yellow mb-3 uppercase tracking-widest border-b border-cyber-yellow pb-2">
                       <span>Program-Aware System</span>
                       <span class="text-cyber-yellow font-bold group-hover:text-yellow-300 transition-colors">Stateful
                         Programs</span>
@@ -1529,39 +1529,39 @@
 
                     <!-- Program A -->
                     <div class="flex items-center gap-4 mb-4">
-                      <span class="text-xl font-mono text-cyber-yellow/80 w-12 text-right">P1</span>
+                      <span class="text-2xl font-mono text-cyber-yellow/80 w-14 text-right">P1</span>
                       <div
-                        class="h-16 w-full border border-cyber-yellow rounded-lg flex items-center relative overflow-hidden bg-cyber-yellow/5 shadow-[0_0_15px_rgba(252,238,9,0.1)]">
+                        class="h-20 w-full border border-cyber-yellow rounded-lg flex items-center relative overflow-hidden bg-cyber-yellow/5 shadow-[0_0_15px_rgba(252,238,9,0.1)]">
                         <div
-                          class="absolute inset-y-0 left-0 bg-cyber-yellow/20 w-1/3 border-r border-cyber-yellow flex items-center justify-center text-sm font-bold text-cyber-yellow tracking-wide">
+                          class="absolute inset-y-0 left-0 bg-cyber-yellow/20 w-1/3 border-r border-cyber-yellow flex items-center justify-center text-xl font-bold text-cyber-yellow tracking-wide">
                           Reasoning</div>
                         <div
-                          class="absolute inset-y-0 left-1/3 bg-[var(--color-status-blue)]/20 w-1/4 border-r border-cyber-yellow flex items-center justify-center text-sm font-bold text-[var(--color-status-blue)] tracking-wide">
+                          class="absolute inset-y-0 left-1/3 bg-[var(--color-status-blue)]/20 w-1/4 border-r border-cyber-yellow flex items-center justify-center text-xl font-bold text-[var(--color-status-blue)] tracking-wide">
                           Acting</div>
                         <div
-                          class="absolute inset-y-0 left-[58.33%] bg-cyber-yellow/20 w-1/3 border-r border-cyber-yellow flex items-center justify-center text-sm font-bold text-cyber-yellow tracking-wide">
+                          class="absolute inset-y-0 left-[58.33%] bg-cyber-yellow/20 w-1/3 border-r border-cyber-yellow flex items-center justify-center text-xl font-bold text-cyber-yellow tracking-wide">
                           Reasoning</div>
                       </div>
                     </div>
 
                     <!-- Program B -->
                     <div class="flex items-center gap-4 mb-4">
-                      <span class="text-xl font-mono text-cyber-yellow/80 w-12 text-right">P2</span>
+                      <span class="text-2xl font-mono text-cyber-yellow/80 w-14 text-right">P2</span>
                       <div
-                        class="h-16 w-full border border-cyber-yellow rounded-lg flex items-center relative overflow-hidden bg-cyber-yellow/5 shadow-[0_0_15px_rgba(252,238,9,0.1)]">
+                        class="h-20 w-full border border-cyber-yellow rounded-lg flex items-center relative overflow-hidden bg-cyber-yellow/5 shadow-[0_0_15px_rgba(252,238,9,0.1)]">
                         <div
-                          class="absolute inset-y-0 left-0 bg-[var(--color-status-blue)]/20 w-1/4 border-r border-cyber-yellow flex items-center justify-center text-sm font-bold text-[var(--color-status-blue)] tracking-wide">
+                          class="absolute inset-y-0 left-0 bg-[var(--color-status-blue)]/20 w-1/4 border-r border-cyber-yellow flex items-center justify-center text-xl font-bold text-[var(--color-status-blue)] tracking-wide">
                           Acting</div>
                         <div
-                          class="absolute inset-y-0 left-1/4 bg-cyber-yellow/20 w-1/2 border-r border-cyber-yellow flex items-center justify-center text-sm font-bold text-cyber-yellow tracking-wide">
+                          class="absolute inset-y-0 left-1/4 bg-cyber-yellow/20 w-1/2 border-r border-cyber-yellow flex items-center justify-center text-xl font-bold text-cyber-yellow tracking-wide">
                           Reasoning</div>
                         <div
-                          class="absolute inset-y-0 left-3/4 bg-[var(--color-status-blue)]/20 w-1/4 flex items-center justify-center text-sm font-bold text-[var(--color-status-blue)] tracking-wide">
+                          class="absolute inset-y-0 left-3/4 bg-[var(--color-status-blue)]/20 w-1/4 flex items-center justify-center text-xl font-bold text-[var(--color-status-blue)] tracking-wide">
                           Acting</div>
                       </div>
                     </div>
 
-                    <p class="text-sm text-[var(--color-text-main)] opacity-80 font-body text-center mt-3 leading-relaxed">
+                    <p class="text-xl text-[var(--color-text-main)] opacity-80 font-body text-center mt-4 leading-relaxed">
                       <span class="math-sym not-italic text-[#4fc1ff]">&tau;</span> reveals GPU idle windows &bull; <span class="math-sym not-italic text-[#4ade80]">c</span> guides eviction<br>
                       <span class="math-sym not-italic text-[#fbbf24]">L</span> enables locality-aware routing &bull; <span class="math-sym not-italic text-[#fb923c]">s</span> enables cross-node load balancing
                     </p>
