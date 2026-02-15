@@ -66,10 +66,10 @@
       --grid-color: rgba(252, 238, 9, 0.05);
       --scanline-color: rgba(252, 238, 9, 0.02);
 
-      /* === FONTS === */
-      --font-body: 'Rajdhani', sans-serif;
-      --font-heading: 'Orbitron', sans-serif;
-      --font-mono: 'Share Tech Mono', monospace;
+      /* === FONTS (default: CLEAN — Inter & Roboto Mono) === */
+      --font-body: 'Inter', sans-serif;
+      --font-heading: 'Inter', sans-serif;
+      --font-mono: 'Roboto Mono', monospace;
 
       /* === STATUS COLORS (DARK) === */
       --color-status-green: #86efac;
@@ -733,7 +733,7 @@
 
       <!-- Subtitle -->
       <p class="text-xl md:text-2xl text-[var(--color-text-main)] tracking-wide mb-4 leading-loose tracking-wide max-w-3xl mx-auto max-w-3xl mx-auto"
-        style="font-family: 'Rajdhani', sans-serif;">
+        style="font-family: var(--font-body);">
         A <span class="text-cyber-yellow font-semibold">Fast</span>,
         <span class="text-cyber-gold font-semibold">Simple</span>, and
         <span class="text-cyber-silver font-semibold">Robust</span>
@@ -764,7 +764,11 @@
             Memory Savings</span>
         </div>
       </div>
-
+      <div class="inline-block bg-[var(--color-bg-panel)] border border-[var(--color-primary)]/40 rounded-lg px-6 md:px-8 py-4 mb-8 shadow-[0_0_15px_rgba(226,192,68,0.15)] max-w-4xl mx-auto">
+        <p class="font-body text-lg md:text-xl text-[var(--color-text-main)] tracking-wide leading-relaxed">
+          ThunderAgent is the <span class="text-cyber-yellow font-bold glow-yellow">first principled approach</span> to use program abstraction to schedule all resources (GPU KV caches, CPU, and remote tools) for distributed agentic inference and rollout.
+        </p>
+      </div>
       <!-- Divider -->
       <div class="h-line-yellow w-full max-w-3xl mx-auto mb-10 opacity-40"></div>
 
@@ -2059,8 +2063,9 @@
       const fontConfig = fonts[style];
       if (!fontConfig) return;
 
-      // Only update body font, keeping Heading (Orbitron) and Mono (Share Tech Mono) fixed.
+      root.style.setProperty('--font-heading', fontConfig.heading);
       root.style.setProperty('--font-body', fontConfig.body);
+      root.style.setProperty('--font-mono', fontConfig.mono);
 
       localStorage.setItem('font-style', style);
     }
