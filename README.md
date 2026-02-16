@@ -102,7 +102,6 @@ If you use ThunderAgent for your research, please cite our [paper](https://arxiv
 ```
 
 ## Contact Us
-If you meet any problem implementing, modifying and if you have any thoughts and suggestions please send email to `hkang342@gatech.edu`,`ergt2025@gmail.com`,`weilixu2@illinois.edu`
-### Main Project Contributers
-Hao Kang(Georgia Tech)`hkang342@gatech.edu`, Ziyang Li(individual researcher)`ergt2025@gmail.com`, Weili Xu(UIUC)`weilixu2@illinois.edu`
+For enterprises interested in adopting or deploying ThunderAgent at scale, including technical consulting, sponsorship opportunities, or partnership inquiries, please contact us at `hkang342@gatech.edu` or `Simran@together.ai`
+
 
