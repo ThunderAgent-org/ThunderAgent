@@ -8,7 +8,7 @@ Fast, simple and program-aware agentic inference system.
 </h3>
 
 <p align="center">
-| <a href="https://github.com/HaoKang-Timmy/ThunderAgent/tree/main/wiki"><b>Wiki</b></a> | <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://thunderagent.ai"><b>Blog</b></a> | <a href="https://github.com/HaoKang-Timmy/ThunderAgent/blob/main/assets/paper/_Arxiv__ThunderAgent.pdf"><b>Paper</b></a> |
+| <a href="https://github.com/HaoKang-Timmy/ThunderAgent/tree/main/wiki"><b>Wiki</b></a> | <a href="https://docs.vllm.ai"><b>Documentation</b></a> | <a href="https://thunderagent.ai"><b>Blog</b></a> | <a href="https://arxiv.org/pdf/2602.13692"><b>Paper</b></a> |
 </p>
 
 
@@ -95,10 +95,18 @@ Please create a pull request.
 
 ## Citation
 
-If you use ThunderAgent for your research, please cite our [paper](https://arxiv.org/abs/2309.06180):
+If you use ThunderAgent for your research, please cite our [paper](https://arxiv.org/abs/2602.13692):
 
 ```bibtex
-
+@misc{kang2026thunderagentsimplefastprogramaware,
+      title={ThunderAgent: A Simple, Fast and Program-Aware Agentic Inference System}, 
+      author={Hao Kang and Ziyang Li and Xinyu Yang and Weili Xu and Yinfang Chen and Junxiong Wang and Beidi Chen and Tushar Krishna and Chenfeng Xu and Simran Arora},
+      year={2026},
+      eprint={2602.13692},
+      archivePrefix={arXiv},
+      primaryClass={cs.OS},
+      url={https://arxiv.org/abs/2602.13692}, 
+}
 ```
 
 ## Contact Us
