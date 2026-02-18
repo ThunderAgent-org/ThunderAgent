@@ -112,4 +112,7 @@ If you use ThunderAgent for your research, please cite our [paper](https://arxiv
 ## Contact Us
 For enterprises interested in adopting or deploying ThunderAgent at scale, including technical consulting, sponsorship opportunities, or partnership inquiries, please contact us at [hkang342@gatech.edu](mailto:hkang342@gatech.edu).
 
+## License
+This repository is available under the MIT license. See the [LICENSE.md](https://github.com/ThunderAgent-org/ThunderAgent/blob/main/LICENSE.md) file for details.
+
 
