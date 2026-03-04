@@ -4,11 +4,16 @@
 # https://github.com/OpenRLHF/OpenRLHF/blob/main/openrlhf/models/model.py
 
 from typing import Any, Dict, Optional, Tuple, Union
+import os
+import random
+import time
 import torch
 import torch.nn as nn
+from filelock import FileLock
 from loguru import logger
 from peft import LoraConfig, TaskType, get_peft_model
 from peft.tuners.lora import LoraLayer
+import safetensors
 import transformers
 from transformers import AutoConfig, AutoModel, AutoModelForCausalLM, BitsAndBytesConfig
 import numpy as np
@@ -16,6 +21,34 @@ from skyrl_train.distributed.ulysses.utils import ulysses_pad_and_slice_inputs, 
 from skyrl_train.utils.torch_utils import chunked_entropy_from_logits, logprobs_from_logits
 from flash_attn.bert_padding import pad_input, unpad_input
 from packaging.version import Version
+
+
+# Monkey-patch safetensors.safe_open with retry logic.
+# When multiple workers simultaneously mmap the same safetensors files,
+# safe_open can fail with "SafetensorError: EOF while parsing" due to
+# kernel returning zero-filled pages. Retrying with backoff resolves this.
+_original_safe_open = safetensors.safe_open
+
+
+def _safe_open_with_retry(*args, **kwargs):
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            return _original_safe_open(*args, **kwargs)
+        except safetensors.SafetensorError as e:
+            if "EOF while parsing" in str(e) and attempt < max_retries - 1:
+                wait = random.uniform(0.5, 2.0) * (attempt + 1)
+                logger.warning(f"safe_open failed (attempt {attempt + 1}/{max_retries}), retrying in {wait:.1f}s: {e}")
+                time.sleep(wait)
+            else:
+                raise
+
+
+safetensors.safe_open = _safe_open_with_retry
+# Also patch the already-imported reference in transformers (uses `from safetensors import safe_open`)
+import transformers.modeling_utils
+
+transformers.modeling_utils.safe_open = _safe_open_with_retry
 
 
 class HFModelWrapper(nn.Module):
@@ -103,16 +136,22 @@ class HFModelWrapper(nn.Module):
             if rope_theta:
                 rope_scaling_kwargs["rope_theta"] = rope_theta
 
-            self.model = model_class.from_pretrained(
-                pretrain_or_model,
-                config=model_config,
-                trust_remote_code=True,
-                attn_implementation=self.attn_implementation,
-                quantization_config=nf4_config,
-                torch_dtype=torch.bfloat16 if bf16 else torch.float32,
-                device_map=device_map,
-                **rope_scaling_kwargs,
-            )
+            # Serialize model loading to prevent concurrent safetensors mmap race.
+            # When 16+ workers simultaneously mmap the same .safetensors files,
+            # safe_open() can get zero-filled pages → SafetensorError: EOF.
+            _lock_dir = os.environ.get("HOME", "/tmp")
+            _lock_path = os.path.join(_lock_dir, ".safetensors_load.lock")
+            with FileLock(_lock_path, timeout=1800):
+                self.model = model_class.from_pretrained(
+                    pretrain_or_model,
+                    config=model_config,
+                    trust_remote_code=True,
+                    attn_implementation=self.attn_implementation,
+                    quantization_config=nf4_config,
+                    torch_dtype=torch.bfloat16 if bf16 else torch.float32,
+                    device_map=device_map,
+                    **rope_scaling_kwargs,
+                )
 
             # gpt oss
             if Version(transformers.__version__) >= Version("4.56.2"):

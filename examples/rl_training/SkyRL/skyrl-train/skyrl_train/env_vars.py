@@ -86,3 +86,22 @@ Set `_SKYRL_USE_NEW_INFERENCE=1` to enable the new inference layer.
 This flag is intended for internal testing and will be removed once the new
 inference layer is validated and made the default.
 """
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Generation Timeouts
+# ─────────────────────────────────────────────────────────────────────────────
+
+SKYRL_GENERATION_TASK_TIMEOUT_S = int(os.environ.get("SKYRL_GENERATION_TASK_TIMEOUT_S", 3600))
+"""
+Timeout in seconds for a single trajectory generation task (Ray remote call).
+If a task exceeds this, it is cancelled and replaced with a dummy output.
+Prevents deadlocks when Ray ObjectRef result delivery fails under load.
+Default: 3600 (1 hour).
+"""
+
+SKYRL_GENERATION_BATCH_TIMEOUT_S = int(os.environ.get("SKYRL_GENERATION_BATCH_TIMEOUT_S", 7200))
+"""
+Timeout in seconds for the entire batch of generation tasks in generate().
+Safety net if individual task timeouts fail to fire.
+Default: 7200 (2 hours).
+"""

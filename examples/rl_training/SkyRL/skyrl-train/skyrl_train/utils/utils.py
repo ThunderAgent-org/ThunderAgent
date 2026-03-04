@@ -669,6 +669,13 @@ def prepare_runtime_environment(cfg: Union[SkyRLConfig, DictConfig]) -> dict[str
         logger.info(f"Exporting HF_HOME to ray runtime env: {os.environ['HF_HOME']}")
         env_vars["HF_HOME"] = os.environ["HF_HOME"]
 
+    # NOTE: Export HF_TOKEN for HuggingFace authentication (needed by FSDP workers loading model weights)
+    if os.environ.get("HF_TOKEN"):
+        env_vars["HF_TOKEN"] = os.environ["HF_TOKEN"]
+
+    if os.environ.get("HUGGINGFACE_HUB_CACHE"):
+        env_vars["HUGGINGFACE_HUB_CACHE"] = os.environ["HUGGINGFACE_HUB_CACHE"]
+
     # NOTE: Export XDG_CACHE_HOME for vLLM and other tools
     if os.environ.get("XDG_CACHE_HOME"):
         logger.info(f"Exporting XDG_CACHE_HOME to ray runtime env: {os.environ['XDG_CACHE_HOME']}")
@@ -694,11 +701,27 @@ def prepare_runtime_environment(cfg: Union[SkyRLConfig, DictConfig]) -> dict[str
         logger.info(f"Exporting SKYRL_WORKER_NCCL_TIMEOUT_IN_S to ray runtime env: {os.environ['SKYRL_WORKER_NCCL_TIMEOUT_IN_S']}")
         env_vars["SKYRL_WORKER_NCCL_TIMEOUT_IN_S"] = os.environ["SKYRL_WORKER_NCCL_TIMEOUT_IN_S"]
 
+    # NOTE: Export TORCH_CUDA_ARCH_LIST for megatron-core import on CPU-only nodes
+    if os.environ.get("TORCH_CUDA_ARCH_LIST"):
+        logger.info(f"Exporting TORCH_CUDA_ARCH_LIST to ray runtime env: {os.environ['TORCH_CUDA_ARCH_LIST']}")
+        env_vars["TORCH_CUDA_ARCH_LIST"] = os.environ["TORCH_CUDA_ARCH_LIST"]
+
     # NOTE: Export NCCL timeout env vars
     for nccl_var in ["NCCL_TIMEOUT", "TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC", "NCCL_ASYNC_ERROR_HANDLING"]:
         if os.environ.get(nccl_var):
             env_vars[nccl_var] = os.environ[nccl_var]
 
+    # NOTE: Export OPENAI_BASE_URL for mini-swe-agent LiteLLM → vLLM HTTP endpoint routing.
+    # Without this, init_and_run Ray tasks on remote nodes can't reach ThunderAgent/vLLM.
+    if os.environ.get("OPENAI_BASE_URL"):
+        logger.info(f"Exporting OPENAI_BASE_URL to ray runtime env: {os.environ['OPENAI_BASE_URL']}")
+        env_vars["OPENAI_BASE_URL"] = os.environ["OPENAI_BASE_URL"]
+
+    # NOTE: Export DOCKER_NODE_RESOURCE so that init_and_run Ray tasks on remote nodes
+    # can see the docker_node resource constraint and schedule on the correct node.
+    if os.environ.get("DOCKER_NODE_RESOURCE"):
+        logger.info("Exporting DOCKER_NODE_RESOURCE to ray runtime env")
+        env_vars["DOCKER_NODE_RESOURCE"] = os.environ["DOCKER_NODE_RESOURCE"]
 
     if SKYRL_LD_LIBRARY_PATH_EXPORT:
         # export `LD_LIBRARY_PATH` to ray runtime env.

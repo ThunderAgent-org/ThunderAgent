@@ -1095,13 +1095,30 @@ class RayPPOTrainer:
                 start_idx = local_step * mini_batch_size
                 end_idx = (local_step + 1) * mini_batch_size
 
+                import time as _time
+                _t0 = _time.time()
                 # Workers fetch from object store and slice locally
                 status = self.dispatch.forward_backward_from_staged(model, data_ref, start_idx, end_idx)
+                _fwd_bwd_time = _time.time() - _t0
                 for k, v in status.items():
                     all_metrics[k].append(v)
 
                 # Optimizer step after each mini batch
+                _t1 = _time.time()
                 grad_norm = self.dispatch.optim_step(model)
+                _optim_time = _time.time() - _t1
+                traj_info = ""
+                if "num_real_trajectories" in data.metadata:
+                    nr = data.metadata["num_real_trajectories"]
+                    nd = data.metadata["num_dummy_trajectories"]
+                    traj_info = f", trajectories={nr}real/{nd}dummy"
+                logger.info(
+                    f"{model}_train mini-batch {local_step+1}/{num_mini_batches} "
+                    f"(epoch {_epoch+1}/{self.cfg.trainer.update_epochs_per_batch}): "
+                    f"fwd_bwd={_fwd_bwd_time:.1f}s, optim_step={_optim_time:.1f}s"
+                    + (f", grad_norm={grad_norm:.4f}" if grad_norm is not None else "")
+                    + traj_info
+                )
                 if grad_norm is not None:
                     all_metrics["grad_norm"].append(grad_norm)
 
