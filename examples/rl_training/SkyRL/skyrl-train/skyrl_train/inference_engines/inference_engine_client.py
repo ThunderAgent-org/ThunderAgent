@@ -446,6 +446,20 @@ class InferenceEngineClient(InferenceEngineInterface):
         # Always use the retry loop which also issues the first request inside
         return await self._chat_completion_with_retry(engine_idx, request_payload)
 
+    async def engine_chat_completion(self, engine_idx: int, request_payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Route chat completion to a specific engine (for per-engine routing).
+
+        Same as chat_completion() but bypasses _select_engine_idx() and routes directly
+        to the given engine. Used by per-engine HTTP routes (/engines/{id}/v1/chat/completions)
+        so that an external router (e.g. ThunderAgent) can pin requests to specific engines
+        for better prefix cache locality.
+        """
+        if engine_idx < 0 or engine_idx >= len(self.engines):
+            raise ValueError(f"engine_idx {engine_idx} out of range [0, {len(self.engines)})")
+        # Remove session_id if present — caller already chose the engine explicitly
+        request_payload["json"].pop("session_id", None)
+        return await self._chat_completion_with_retry(engine_idx, request_payload)
+
     async def completion(self, request_payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handles an OpenAI /completions request.

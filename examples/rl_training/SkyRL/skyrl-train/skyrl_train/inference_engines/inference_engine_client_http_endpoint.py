@@ -326,6 +326,131 @@ def create_app() -> fastapi.FastAPI:
                 all_engine_metrics.append({"engine_id": i, "error": str(e)})
         return {"timestamp": time.time(), "engines": all_engine_metrics}
 
+    # ------------------------------------------------------------------
+    # Per-engine routes: /engines/{engine_id}/...
+    # These allow an external router (e.g. ThunderAgent) to pin requests
+    # to a specific vLLM engine for better prefix cache locality.
+    # ------------------------------------------------------------------
+
+    def _validate_engine_id(engine_id: int) -> Optional[JSONResponse]:
+        """Return an error JSONResponse if engine_id is out of range, else None."""
+        if _global_inference_engine_client is None:
+            return JSONResponse(
+                content=ErrorResponse(
+                    error=ErrorInfo(
+                        message="Inference engine client not initialized",
+                        type=HTTPStatus.SERVICE_UNAVAILABLE.phrase,
+                        code=HTTPStatus.SERVICE_UNAVAILABLE.value,
+                    )
+                ).model_dump(),
+                status_code=HTTPStatus.SERVICE_UNAVAILABLE.value,
+            )
+        num_engines = len(_global_inference_engine_client.engines)
+        if engine_id < 0 or engine_id >= num_engines:
+            return JSONResponse(
+                content=ErrorResponse(
+                    error=ErrorInfo(
+                        message=f"engine_id {engine_id} out of range [0, {num_engines})",
+                        type=HTTPStatus.BAD_REQUEST.phrase,
+                        code=HTTPStatus.BAD_REQUEST.value,
+                    )
+                ).model_dump(),
+                status_code=HTTPStatus.BAD_REQUEST.value,
+            )
+        return None
+
+    @app.post("/engines/{engine_id}/v1/chat/completions")
+    async def engine_chat_completion(engine_id: int, raw_request: Request):
+        """Route a chat completion request to a specific engine by index.
+
+        Bypasses session_id-based routing so that an external router can
+        pin requests to individual engines for prefix cache locality.
+        """
+        error = _validate_engine_id(engine_id)
+        if error is not None:
+            return error
+
+        try:
+            request_json = await raw_request.json()
+
+            validation_error = _validate_openai_request(request_json, endpoint="/chat/completions")
+            if validation_error is not None:
+                return JSONResponse(content=validation_error.model_dump(), status_code=validation_error.error.code)
+
+            payload = {
+                "json": request_json,
+                "headers": dict(raw_request.headers) if hasattr(raw_request, "headers") else {},
+            }
+            response = await _global_inference_engine_client.engine_chat_completion(engine_id, payload)
+
+            if "error" in response or response.get("object", "") == "error":
+                error_code = response["error"]["code"] if "error" in response else response["code"]
+                return JSONResponse(content=response, status_code=error_code)
+            return JSONResponse(content=response)
+
+        except json.JSONDecodeError as e:
+            error_response = ErrorResponse(
+                error=ErrorInfo(
+                    message=f"Invalid JSON error: {str(e)}",
+                    type=HTTPStatus.BAD_REQUEST.phrase,
+                    code=HTTPStatus.BAD_REQUEST.value,
+                )
+            )
+            return JSONResponse(content=error_response.model_dump(), status_code=HTTPStatus.BAD_REQUEST.value)
+        except Exception as e:
+            tb = traceback.format_exc()
+            logger.error(f"Error handling /engines/{engine_id}/v1/chat/completions:\n{tb}")
+            error_response = ErrorResponse(
+                error=ErrorInfo(
+                    message=f"Error handling /engines/{engine_id}/v1/chat/completions: {str(e)}",
+                    type=HTTPStatus.INTERNAL_SERVER_ERROR.phrase,
+                    code=HTTPStatus.INTERNAL_SERVER_ERROR.value,
+                )
+            )
+            return JSONResponse(content=error_response.model_dump(), status_code=HTTPStatus.INTERNAL_SERVER_ERROR.value)
+
+    @app.get("/engines/{engine_id}/metrics")
+    async def get_engine_metrics(engine_id: int):
+        """Return metrics for a single engine.
+
+        Same format as /metrics but the ``engines`` array contains only the
+        requested engine, which is what SkyRLMetricsClient expects.
+        """
+        error = _validate_engine_id(engine_id)
+        if error is not None:
+            return error
+
+        engine = _global_inference_engine_client.engines[engine_id]
+        try:
+            metrics = await engine.get_engine_metrics()
+            engine_metrics = {"engine_id": engine_id, **metrics}
+        except Exception as e:
+            engine_metrics = {"engine_id": engine_id, "error": str(e)}
+        return {"timestamp": time.time(), "engines": [engine_metrics]}
+
+    @app.get("/engines/{engine_id}/v1/models")
+    async def engine_list_models(engine_id: int):
+        """Return the model list for a specific engine.
+
+        All engines serve the same model, so this returns the same result
+        as a global /v1/models endpoint would.  ThunderAgent calls this to
+        verify the backend is healthy.
+        """
+        error = _validate_engine_id(engine_id)
+        if error is not None:
+            return error
+
+        return {
+            "object": "list",
+            "data": [
+                {
+                    "id": _global_inference_engine_client.model_name,
+                    "object": "model",
+                    "owned_by": "skyrl",
+                }
+            ],
+        }
+
     # This handler only catches unexpected server-side exceptions
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):

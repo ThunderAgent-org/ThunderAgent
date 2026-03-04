@@ -159,7 +159,7 @@ def create_ray_wrapped_inference_engines(
     if not use_hybrid_engine:
         # Create a big placement group to ensure that all inference engines are packed
         bundles = [{"GPU": 1, "CPU": 1} for _ in range(num_inference_engines * per_engine_gpu_count)]
-        shared_pg = placement_group(bundles, strategy="PACK")
+        shared_pg = placement_group(bundles, strategy="STRICT_PACK")
         get_ray_pg_ready_with_timeout(shared_pg, timeout=SKYRL_RAY_PG_TIMEOUT_IN_S)
 
     for i in range(num_inference_engines):

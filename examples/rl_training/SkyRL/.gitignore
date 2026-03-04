@@ -1,0 +1,18 @@
+# Credentials (use .example files as templates)
+api-keys.sh
+cluster-config.sh
+
+# Training artifacts
+training_data/
+slurm-*.out
+slurm-*.err
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Planning files (session-specific)
+task_plan.md
+findings.md
+progress.md

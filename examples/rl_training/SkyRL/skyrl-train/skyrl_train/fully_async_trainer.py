@@ -22,15 +22,40 @@ from tqdm import tqdm
 from skyrl_train.utils import Timer
 from skyrl_train.utils.ppo_utils import normalize_advantages_dict
 from skyrl_train.training_batch import TrainingInputBatch
-from skyrl_train.generators.base import GeneratorOutput
+from skyrl_train.generators.base import GeneratorOutput, GeneratorInput
 from skyrl_train.utils.trainer_utils import ResumeMode, build_dataloader
 from skyrl_train.utils.io import io
-from skyrl_train.generators.utils import prepare_generator_input, concatenate_generator_outputs
+from skyrl_train.generators.utils import (
+    prepare_generator_input,
+    concatenate_generator_outputs,
+    get_rollout_metrics,
+)
 from skyrl_train.inference_engines.utils import get_sampling_params_for_backend
 from dataclasses import dataclass
 from torchdata.stateful_dataloader import StatefulDataLoader
 from typing import List, Tuple, Iterable, Set
 import inspect
+
+
+async def _await_uncancellable(coro):
+    """Await a coroutine to completion even if the current task is cancelled.
+
+    This is used to keep staleness-manager accounting consistent (e.g. decrementing `running`)
+    so cancellations don't leak capacity slots.
+    """
+    task = asyncio.create_task(coro)
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        # Temporarily clear cancellation so we can wait for `task` to finish, then re-raise.
+        current = asyncio.current_task()
+        if current is not None:
+            while current.cancelling():
+                current.uncancel()
+        try:
+            return await asyncio.shield(task)
+        finally:
+            raise
 
 
 @dataclass
@@ -144,6 +169,20 @@ class _AsyncStalenessManager:
                 f"Got {self._stat.submitted} != {self._stat.accepted}."
             )
 
+    async def reset_state_for_next_epoch(self, global_step: int) -> None:
+        """Reset internal counters to a consistent state for the next epoch.
+
+        This is a best-effort recovery path to keep training going in the presence of
+        unexpected generation failures. Prefer fixing the underlying cause instead.
+        """
+        async with self._cond:
+            self._current_global_step = int(global_step)
+            self._stat.running = 0
+            consumed = (global_step - 1) * self.mini_batch_size
+            self._stat.accepted = consumed
+            self._stat.submitted = consumed
+            self._cond.notify_all()
+
     def _compute_capacity_unlocked(self) -> int:
         # NOTE(Charlie): do not need a self._current_global_step + 1 here unlike AReal because our
         # `_current_global_step` is "the version being worked on", not already finished steps.
@@ -175,8 +214,9 @@ class _AsyncStalenessManager:
         """
         Called when a generation is not accepted, or generation worker runs into error while generating a trajectory.
 
-        Currently, we do not call this method but instead raise errors. We might need to use this when we want to
-        filter out trajectories.
+        This is used to release capacity when a worker is cancelled mid-generation or when a rollout
+        cannot be enqueued. In these cases we keep training going by emitting dummy rollouts, but
+        still need to maintain `running` accounting.
         """
         async with self._cond:
             self._stat.running -= 1
@@ -248,7 +288,9 @@ class _AsyncDataloader:
         assert self._lock is not None, "Dataloader not initialized; call reset() first"
         async with self._lock:
             for uid in uids:
-                assert uid not in self._consumed_data_uids, "Duplicate UID found in mini-batch"
+                if uid in self._consumed_data_uids:
+                    logger.warning(f"Duplicate UID {uid} in mini-batch (likely from dummy outputs). Skipping.")
+                    continue
                 self._consumed_data_uids.add(uid)
 
     def get_consumed_uids_list(self) -> List[str]:
@@ -394,29 +436,77 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
                         # else this loop will never exit.
                         while len(cur_generation_group_mini_batch) < self.mini_batch_size:
                             # We do finish-time FIFO here (not schedule-time FIFO)
-                            cur_generation_group_mini_batch.append(await generation_output_group_buffer.get())
+                            try:
+                                item = await asyncio.wait_for(
+                                    generation_output_group_buffer.get(), timeout=600
+                                )
+                                cur_generation_group_mini_batch.append(item)
+                            except asyncio.TimeoutError:
+                                alive = sum(1 for t in generator_tasks if not t.done())
+                                qsize = generation_output_group_buffer.qsize()
+                                have = len(cur_generation_group_mini_batch)
+                                logger.warning(
+                                    f"buffer.get() timed out after 600s at step {self.global_step}. "
+                                    f"Have {have}/{self.mini_batch_size} items, "
+                                    f"buffer qsize={qsize}, alive generators={alive}/{len(generator_tasks)}"
+                                )
+                                if alive == 0 and qsize == 0:
+                                    # With per-group dummy-filling, this should never happen. If it does,
+                                    # we are in an unrecoverable state (we don't know which UID is missing).
+                                    raise RuntimeError(
+                                        "Generation buffer starvation: all generator tasks finished but the "
+                                        f"buffer only produced {have}/{self.mini_batch_size} items at "
+                                        f"step={self.global_step}."
+                                    )
+                                # else: some generators still alive, keep waiting
+                                continue
                             buffer_pbar.update(1)
                             buffer_pbar.set_postfix({"buffer qsize": generation_output_group_buffer.qsize()})
                         buffer_pbar.close()
 
                     # 2. Post-process the generated groups, aggregating to a single GeneratorOutput, and convert to training format.
-                    with Timer("convert_to_training_input", self.all_timings):
-                        training_input = await asyncio.to_thread(
-                            self.convert_generation_group_mini_batch_to_training_input, cur_generation_group_mini_batch
-                        )
-
                     # 3. Run training and update consumed UIDs.
-                    with Timer("run_training", self.all_timings):
-                        status = await self._run_training(training_input)
+                    # 4. After training: pause generation, sync weights, resume.
+                    try:
+                        with Timer("convert_to_training_input", self.all_timings):
+                            training_input = await asyncio.to_thread(
+                                self.convert_generation_group_mini_batch_to_training_input,
+                                cur_generation_group_mini_batch,
+                            )
+
+                        with Timer("run_training", self.all_timings):
+                            if float(training_input["loss_mask"].sum().item()) == 0.0:
+                                logger.warning(
+                                    f"Step {self.global_step}: all trajectories are loss-masked (likely all dummy). "
+                                    "Skipping training update."
+                                )
+                                status = {"skipped": "all_loss_masked"}
+                            else:
+                                status = await self._run_training(training_input)
+                            await self.async_train_dataloader.mark_consumed_uids(
+                                [g.uid for g in cur_generation_group_mini_batch]
+                            )
+
+                        with Timer("sync_weights", self.all_timings):
+                            if "skipped" not in status:
+                                await self.inference_engine_client.pause_generation()
+                                await self.async_sync_policy_weights_to_inference_engines()
+                                await self.inference_engine_client.resume_generation()
+                            else:
+                                logger.info(
+                                    f"Step {self.global_step}: skipping weight sync because training was skipped."
+                                )
+                    except Exception as e:
+                        logger.error(f"Step {self.global_step} FAILED: {e}")
+                        logger.error(traceback.format_exc())
+                        import sys
+
+                        traceback.print_exc(file=sys.stderr)
+                        status = {"error": str(e)}
+                        # Mark UIDs consumed so we don't retry same data
                         await self.async_train_dataloader.mark_consumed_uids(
                             [g.uid for g in cur_generation_group_mini_batch]
                         )
-
-                    # 4. After training: pause generation, sync weights, resume.
-                    with Timer("sync_weights", self.all_timings):
-                        await self.inference_engine_client.pause_generation()
-                        await self.async_sync_policy_weights_to_inference_engines()
-                        await self.inference_engine_client.resume_generation()
 
                 # 5. Set logs for this training step.
                 logger.info(status)
@@ -452,10 +542,13 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
                     steps_completed_in_epoch = self.num_steps_per_epoch
                 expected_consumed_in_epoch = self.mini_batch_size * steps_completed_in_epoch
                 actual_consumed_in_epoch = len(self.async_train_dataloader.get_consumed_uids_list())
-                assert actual_consumed_in_epoch == expected_consumed_in_epoch, (
-                    "Unexpected number of consumed data UIDs. Got: "
-                    f"{actual_consumed_in_epoch} != {expected_consumed_in_epoch}"
-                )
+                if actual_consumed_in_epoch != expected_consumed_in_epoch:
+                    logger.warning(
+                        f"Consumed UIDs mismatch at step {self.global_step - 1}: "
+                        f"actual={actual_consumed_in_epoch} != expected={expected_consumed_in_epoch} "
+                        f"(delta={expected_consumed_in_epoch - actual_consumed_in_epoch}). "
+                        f"This can happen when buffer items are lost due to worker errors or timeouts."
+                    )
 
             # 8. Per-epoch epilogue.
             if self.cfg.trainer.update_ref_every_epoch and self.ref_model is not None:
@@ -474,11 +567,24 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
             assert all(
                 t.done() for t in generator_tasks
             ), "Generator tasks must be done before resetting the dataloader manager and validating the staleness manager."
-            assert (
-                generation_output_group_buffer.qsize() == 0
-            ), f"We expect all generation output to be consumed by the training worker at end of an epoch, got {generation_output_group_buffer.qsize()}."
+            remaining_qsize = generation_output_group_buffer.qsize()
+            if remaining_qsize > 0:
+                logger.warning(
+                    f"Epoch end: buffer has {remaining_qsize} unconsumed items (expected 0). "
+                    f"Draining to prevent stale data in next epoch."
+                )
+                while not generation_output_group_buffer.empty():
+                    generation_output_group_buffer.get_nowait()
             await self.async_train_dataloader.reset_at_epoch_end()
-            await self._staleness_manager.validate_state_at_epoch_end(self.global_step)
+            try:
+                await self._staleness_manager.validate_state_at_epoch_end(self.global_step)
+            except AssertionError as e:
+                logger.warning(
+                    f"Staleness manager validation failed at epoch end (non-fatal): {e}. "
+                    f"This can happen when buffer items are lost due to worker errors. "
+                    f"Resetting staleness manager state for next epoch."
+                )
+                await self._staleness_manager.reset_state_for_next_epoch(self.global_step)
 
             # End of an epoch.
         pbar.close()
@@ -537,60 +643,124 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
                 if rand_prompts is None:
                     return
 
-                # 1. Prepare generator input
                 assert len(rand_prompts) == 1
-                generator_input, uids = prepare_generator_input(
-                    rand_prompts,
-                    self.cfg.generator.n_samples_per_prompt,
-                    get_sampling_params_for_backend(self.cfg.generator.backend, self.cfg.generator.sampling_params),
-                    self.cfg.environment.env_class,
-                    "train",
-                    self.global_step,
-                )
-                assert all(uid == uids[0] for uid in uids), "Expect all uids to be the same"
+                uid = rand_prompts[0]["uid"]
 
-                # 2. Acquire capacity slot.
+                # 1. Acquire capacity slot early so we never "lose" a scheduled UID without accounting.
                 slot_acquired = False
                 await self._staleness_manager.acquire_submission_slot()
                 slot_acquired = True
 
-                # 3. Generate one rollout group
+                # 2. Generate one rollout group
                 global_step_at_start = self.global_step  # for staleness control
-
-                if "disable_tqdm" in inspect.signature(self.generator.generate).parameters:
-                    # A workaround to disable tqdm for the SkyRLGymGenerator.generate method which will
-                    # blast the console with each worker's progress bar.
-                    cur_generator_output: GeneratorOutput = await self.generator.generate(
-                        generator_input, disable_tqdm=True
+                group_size = self.cfg.generator.n_samples_per_prompt
+                generator_input = None
+                try:
+                    generator_input, uids = prepare_generator_input(
+                        rand_prompts,
+                        group_size,
+                        get_sampling_params_for_backend(
+                            self.cfg.generator.backend, self.cfg.generator.sampling_params
+                        ),
+                        self.cfg.environment.env_class,
+                        "train",
+                        self.global_step,
                     )
-                else:
-                    cur_generator_output: GeneratorOutput = await self.generator.generate(generator_input)
+                    assert all(u == uids[0] for u in uids), "Expect all uids to be the same"
 
-                # 4. Enqueue the completed group and mark accepted to free capacity slot.
+                    if "disable_tqdm" in inspect.signature(self.generator.generate).parameters:
+                        # A workaround to disable tqdm for the SkyRLGymGenerator.generate method which will
+                        # blast the console with each worker's progress bar.
+                        cur_generator_output: GeneratorOutput = await self.generator.generate(
+                            generator_input, disable_tqdm=True
+                        )
+                    else:
+                        cur_generator_output: GeneratorOutput = await self.generator.generate(generator_input)
+                except asyncio.CancelledError:
+                    # Ensure we release the slot on cancellation to avoid leaking running-count.
+                    if slot_acquired:
+                        await _await_uncancellable(self._staleness_manager.on_rollout_rejected())
+                    raise
+                except Exception as e:
+                    # Never drop a scheduled UID on the floor: enqueue a valid dummy output so the
+                    # consumer can keep making progress and we maintain submitted==accepted invariants.
+                    logger.error(f"Generator worker exception for uid={uid}: {e}")
+                    logger.error(f"Traceback: \n{traceback.format_exc()}")
+                    cur_generator_output = self._make_dummy_generator_output(
+                        group_size=group_size,
+                        stop_reason="generator_error",
+                        generator_input=generator_input,
+                    )
+                    uids = [uid] * group_size
+
+                # 3. Enqueue the completed group and mark accepted to free capacity slot.
+                logger.debug(
+                    f"Worker uid={uid} generate() returned, enqueueing to buffer "
+                    f"(qsize={generation_output_group_buffer.qsize()}, step={global_step_at_start})"
+                )
                 try:
                     generation_output_group_buffer.put_nowait(
                         GeneratedOutputGroup(
                             generator_output=cur_generator_output,
-                            uid=uids[0],
+                            uid=uid,
                             global_step_when_scheduled=global_step_at_start,
                         )
                     )
                 except asyncio.QueueFull:
                     raise AssertionError("Generation buffer should never be full given staleness control.")
-                await self._staleness_manager.on_rollout_accepted()
+                logger.debug(
+                    f"Worker uid={uid} enqueued successfully "
+                    f"(qsize={generation_output_group_buffer.qsize()})"
+                )
+                await _await_uncancellable(self._staleness_manager.on_rollout_accepted())
         except asyncio.CancelledError:
-            # If a slot was acquired but we exit early, release running count
-            try:
-                if "slot_acquired" in locals() and slot_acquired:
-                    raise RuntimeError("Generation workers should only be cancelled when they finish running.")
-            finally:
-                return
+            return
         except Exception as e:
             logger.error(f"Generator worker errored out with exception: {e}")
             logger.error(f"Traceback: \n{traceback.format_exc()}")
-            if "slot_acquired" in locals() and slot_acquired:
-                raise RuntimeError("Generation workers should only run into error when they finish running.")
-            sys.exit(1)
+            # This should be unreachable because we handle exceptions per-iteration. If it does happen,
+            # keep the process alive (trainer will likely surface the error via timeouts/metrics).
+            return
+
+    def _make_dummy_generator_output(
+        self,
+        *,
+        group_size: int,
+        stop_reason: str,
+        generator_input: GeneratorInput | None,
+    ) -> GeneratorOutput:
+        eos_token_id = getattr(self.tokenizer, "eos_token_id", None)
+        if eos_token_id is None:
+            eos_token_id = 0
+
+        response_ids = [[int(eos_token_id)] for _ in range(group_size)]
+        prompt_token_ids = [[int(eos_token_id)] for _ in range(group_size)]
+        loss_masks = [[0] for _ in range(group_size)]
+        rewards = [0.0 for _ in range(group_size)]
+        stop_reasons = [stop_reason for _ in range(group_size)]
+
+        rollout_logprobs = None
+        if getattr(self.cfg.generator.sampling_params, "logprobs", 0) not in (None, 0):
+            rollout_logprobs = [[0.0] for _ in range(group_size)]
+
+        rollout_metrics = get_rollout_metrics(response_ids, rewards)
+
+        out: GeneratorOutput = {
+            "prompt_token_ids": prompt_token_ids,
+            "response_ids": response_ids,
+            "rewards": rewards,
+            "loss_masks": loss_masks,
+            "stop_reasons": stop_reasons,
+            "rollout_metrics": rollout_metrics,
+            "rollout_logprobs": rollout_logprobs,
+        }
+
+        if generator_input is not None and generator_input.get("trajectory_ids", None) is not None:
+            out["trajectory_ids"] = generator_input["trajectory_ids"]
+        if self.cfg.generator.step_wise_trajectories:
+            out["is_last_step"] = [True for _ in range(group_size)]
+
+        return out
 
     async def async_sync_policy_weights_to_inference_engines(self):
         return await self.policy_model.async_run_method(
@@ -628,6 +798,19 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
         assert generator_output["rollout_metrics"] is not None, "Rollout metrics should be non-null."
         self.all_metrics.update(generator_output["rollout_metrics"])
 
+        # Count dummy vs real trajectories (dummies have single-token response)
+        all_response_ids = sum([output["response_ids"] for output in generator_outputs], [])
+        num_dummy = sum(1 for r in all_response_ids if len(r) <= 2)
+        num_real = len(all_response_ids) - num_dummy
+        logger.info(f"Training batch: {num_real} real, {num_dummy} dummy out of {len(all_response_ids)} total")
+        self.all_metrics.update(
+            {
+                "async/num_real_trajectories": num_real,
+                "async/num_dummy_trajectories": num_dummy,
+                "async/dummy_ratio": num_dummy / max(len(all_response_ids), 1),
+            }
+        )
+
         # Log staleness statistics for this step
         self.all_metrics.update(
             {
@@ -646,7 +829,10 @@ class FullyAsyncRayPPOTrainer(RayPPOTrainer):
         vis = self.tokenizer.decode(generator_output["response_ids"][0])
         logger.info(f"Example generated: {vis}")
 
-        return self.convert_to_training_input(generator_output, uids)
+        training_input = self.convert_to_training_input(generator_output, uids)
+        training_input.metadata["num_real_trajectories"] = num_real
+        training_input.metadata["num_dummy_trajectories"] = num_dummy
+        return training_input
 
     def save_checkpoints(self):
         """

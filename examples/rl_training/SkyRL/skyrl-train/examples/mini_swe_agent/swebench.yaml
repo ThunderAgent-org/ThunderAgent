@@ -215,7 +215,7 @@ agent:
 environment:
   cwd: "/testbed"
   timeout: 180
-  pull_timeout: 1200
+  pull_timeout: 3600
   env:
     PAGER: cat
     MANPAGER: cat
