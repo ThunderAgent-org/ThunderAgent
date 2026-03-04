@@ -767,7 +767,7 @@ class MultiBackendRouter:
             new_program_group: list[Program] = []  # step = 1 (new programs)
             acting_group: list[Program] = []       # ACTING (lowest priority)
             
-            for state in paused_programs:
+            for pid, state, info in paused_programs:
                 if state.step_count == 1:
                     new_program_group.append(state)
                 elif state.status == ProgramStatus.REASONING:
