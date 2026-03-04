@@ -79,11 +79,25 @@ async def chat_completions(request: Request):
     backend = router.get_backend_for_program(program_id)
 
     # Callback to update state after response
-    async def on_usage(total_tokens: int, prompt_tokens: int, cached_tokens: int) -> None:
-        router.update_program_after_request(program_id, program_state, total_tokens, prompt_tokens)
+    async def on_usage(
+        total_tokens: int,
+        prompt_tokens: int | None,
+        completion_tokens: int | None,
+        cached_tokens: int | None,
+    ) -> None:
+        router.update_program_after_request(
+            program_id,
+            program_state,
+            total_tokens,
+            prompt_tokens or 0,
+        )
         # Profile: record request end with KV cache info
         if program_state.profile:
-            program_state.profile.on_request_end(prompt_tokens, cached_tokens)
+            program_state.profile.on_request_end(
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cached_tokens=cached_tokens,
+            )
 
     # Callback for streaming token progress updates (every 20 tokens)
     def on_token_progress(delta_tokens: int) -> None:

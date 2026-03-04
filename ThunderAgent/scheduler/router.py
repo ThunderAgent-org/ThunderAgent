@@ -920,7 +920,7 @@ class MultiBackendRouter:
         backend: BackendState,
         payload: Dict[str, Any],
         *,
-        on_usage: Callable[[int, int, int], Awaitable[None]] | None = None,
+        on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
         on_first_token: Callable[[], None] | None = None,
         on_token: Callable[[], None] | None = None,
         on_token_progress: Callable[[int], None] | None = None,
@@ -930,7 +930,7 @@ class MultiBackendRouter:
         Args:
             backend: Target backend
             payload: Request payload
-            on_usage: Callback with (total_tokens, prompt_tokens, cached_tokens)
+            on_usage: Callback with (total_tokens, prompt_tokens, completion_tokens, cached_tokens)
             on_first_token: Callback when first token is received (streaming only)
             on_token: Callback for each token (streaming only)
             on_token_progress: Callback with delta token count at intervals (streaming only)
