@@ -64,6 +64,9 @@ Lists all tracked programs with their current state.
       "avg_decode_s": 2.3,
       "avg_pause_s": 0.0,
       "avg_tool_call_s": 1.2,
+      "avg_prompt_tokens": 132.4,
+      "avg_completion_tokens": 26.2,
+      "avg_cached_tokens": 98.6,
       "avg_kv_hit_rate": 0.85
     }
   }
@@ -184,6 +187,9 @@ Lists profiling data for all programs. Returns 400 if profiling is not enabled.
     "avg_decode_s": 2.3,
     "avg_pause_s": 0.0,
     "avg_tool_call_s": 1.2,
+    "avg_prompt_tokens": 132.4,
+    "avg_completion_tokens": 26.2,
+    "avg_cached_tokens": 98.6,
     "avg_kv_hit_rate": 0.85
   }
 }
