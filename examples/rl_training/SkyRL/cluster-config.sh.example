@@ -1,0 +1,22 @@
+#!/bin/bash
+# Copy this file to cluster-config.sh and customize for your SLURM cluster:
+#   cp cluster-config.sh.example cluster-config.sh
+#
+# These are optional overrides - defaults work for most clusters.
+
+# NCCL cross-node configuration (REQUIRED for multi-node Docker training):
+# Set to your cluster's inter-node network interface name.
+# Common values: ens7, eth0, ib0, enp1s0f0
+# Find yours with: ip route | grep default | awk '{print $5}'
+export NCCL_SOCKET_IFNAME="ens7"
+
+# Set to 1 if InfiniBand is not available inside Docker containers:
+export NCCL_IB_DISABLE=1
+
+# Docker image (default should work for most setups):
+export DOCKER_IMAGE="novaskyai/skyrl-train-ray-2.51.1-py3.12-cu12.8"
+
+# Paths (defaults inferred from script location):
+# export SKYRL_HOST_DIR="/path/to/SkyRL"
+# export THUNDERAGENT_HOST_DIR="/path/to/ThunderAgent"
+# export TRAINING_DATA_SYNC_DEST="/path/to/output"
