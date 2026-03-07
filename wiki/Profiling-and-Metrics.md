@@ -16,6 +16,9 @@ For each inference step (request/response cycle) of every program, ThunderAgent 
 | `decode_time` | Time from first token to last token |
 | `pause_time` | Time spent waiting in the paused queue before the request starts |
 | `tool_call_time` | Time between the end of the previous request and the arrival of this request (tool execution time) |
+| `prompt_tokens` | Prompt tokens from `usage.prompt_tokens` |
+| `completion_tokens` | Completion tokens from `usage.completion_tokens` (or derived from `total_tokens - prompt_tokens`) |
+| `cached_tokens` | Cached prompt tokens from `usage.prompt_tokens_details.cached_tokens` |
 | `kv_hit_rate` | Ratio of cached tokens to total prompt tokens (`cached_tokens / prompt_tokens`) |
 
 ### Timing Diagram
@@ -33,16 +36,19 @@ Previous request ends                    Current request
 Per-step metrics are automatically written to `{profile_dir}/step_profiles.csv`:
 
 ```csv
-program_id,step_id,prefill_s,decode_s,pause_s,tool_call_s,kv_hit_rate,completed_at
-agent-1,1,0.1523,2.3456,0.0,0.0,,1770532800.0
-agent-1,2,0.0821,1.8734,0.0,1.2345,0.85,1770532805.0
-agent-2,1,0.2011,3.1234,0.5123,0.0,,1770532803.0
+program_id,step_id,prefill_s,decode_s,pause_s,tool_call_s,prompt_tokens,completion_tokens,cached_tokens,kv_hit_rate,completed_at
+agent-1,1,0.1523,2.3456,0.0,0.0,128,25,0,0.0,1770532800.0
+agent-1,2,0.0821,1.8734,0.0,1.2345,129,24,96,0.7442,1770532805.0
+agent-2,1,0.2011,3.1234,0.5123,0.0,140,32,,,1770532803.0
 ```
 
 Notes:
-- `kv_hit_rate` is empty for the first step or when cached token info is unavailable
+- `prompt_tokens`, `completion_tokens`, and `cached_tokens` are empty when the corresponding usage fields are unavailable
+- `kv_hit_rate` is empty unless both `prompt_tokens` and `cached_tokens` are available and `prompt_tokens > 0`
 - `tool_call_time` is 0 for the first step (no previous request)
 - All times are in seconds, rounded to 4 decimal places
+- Token averages in the profile API are rounded to 2 decimal places
+- Current behavior assumes successful backend responses include `usage.total_tokens`; if not, token stats for that step are not finalized
 
 ### API Endpoints
 
@@ -59,6 +65,9 @@ Response format:
   "avg_decode_s": 2.3,
   "avg_pause_s": 0.0,
   "avg_tool_call_s": 1.2,
+  "avg_prompt_tokens": 132.4,
+  "avg_completion_tokens": 26.2,
+  "avg_cached_tokens": 98.6,
   "avg_kv_hit_rate": 0.85
 }
 ```
