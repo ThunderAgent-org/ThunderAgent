@@ -48,17 +48,9 @@ ThunderAgent improves vLLM throughput by **1.5–3.6×** across diverse agentic 
   <img alt="Inference Pipeline Results" src="assets/logos/infer_pipeline.png" width=90%>
 </p>
 
-### Demo
+## Demo
 
-<p align="center">
-  <a href="https://youtu.be/jXO8P_9KFVQ">
-    <img alt="ThunderAgent SWE-Bench Demo Video" src="https://img.youtube.com/vi/jXO8P_9KFVQ/hqdefault.jpg" width=70%>
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://youtu.be/jXO8P_9KFVQ"><b>Watch on YouTube</b></a>
-</p>
+https://github.com/user-attachments/assets/751d8fc3-a9d8-482c-a90c-6fe29e53008f
 
 ## Getting Started
 
