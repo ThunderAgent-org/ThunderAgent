@@ -12,27 +12,37 @@ from typing import Any, Awaitable, Callable, Dict, Optional, Tuple
 import httpx
 from fastapi.responses import Response, StreamingResponse
 
+from ..config import get_config
+
 
 def extract_usage_info(
     payload: Any,
-) -> Tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
+) -> Tuple[
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Optional[int],
+    Dict[str, int | str],
+]:
     """Extract usage info from a vLLM response.
     
     Returns:
-        (total_tokens, prompt_tokens, completion_tokens, cached_tokens)
+        (total_tokens, prompt_tokens, completion_tokens, cached_tokens, cached_tokens_details)
         - cached_tokens is None if prompt_tokens_details is null or missing
+        - cached_tokens_details is {} if sglext.cached_tokens_details is missing
         - All None if usage is not available
     """
     if not isinstance(payload, dict):
-        return None, None, None, None
+        return None, None, None, None, {}
     usage = payload.get("usage")
     if not isinstance(usage, dict):
-        return None, None, None, None
+        return None, None, None, None, {}
     
     total_tokens = None
     prompt_tokens = None
     completion_tokens = None
     cached_tokens = None
+    cached_tokens_details: Dict[str, int | str] = {}
     
     if "total_tokens" in usage:
         val = usage.get("total_tokens")
@@ -70,7 +80,19 @@ def extract_usage_info(
     ):
         total_tokens = prompt_tokens + completion_tokens
 
-    return total_tokens, prompt_tokens, completion_tokens, cached_tokens
+    sglext = payload.get("sglext")
+    if isinstance(sglext, dict):
+        details = sglext.get("cached_tokens_details")
+        if isinstance(details, dict):
+            for key in ("device", "host", "storage"):
+                val = details.get(key)
+                if isinstance(val, (int, float)) and math.isfinite(val):
+                    cached_tokens_details[key] = int(val)
+            storage_backend = details.get("storage_backend")
+            if isinstance(storage_backend, str):
+                cached_tokens_details["storage_backend"] = storage_backend
+
+    return total_tokens, prompt_tokens, completion_tokens, cached_tokens, cached_tokens_details
 
 
 def filtered_headers(headers: httpx.Headers) -> Dict[str, str]:
@@ -94,6 +116,14 @@ def remove_program_id(payload: Dict[str, Any]) -> Dict[str, Any]:
     return payload
 
 
+def maybe_enable_cached_token_details(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Enable cache-source detail reporting when ThunderAgent profiling is enabled."""
+    payload = payload.copy()
+    if get_config().profile_enabled:
+        payload["return_cached_tokens_details"] = True
+    return payload
+
+
 # Default interval for token progress updates during streaming
 DEFAULT_TOKEN_PROGRESS_INTERVAL = 20
 
@@ -103,7 +133,10 @@ async def forward_streaming_request(
     url: str,
     payload: Dict[str, Any],
     *,
-    on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
+    on_usage: Callable[
+        [int, Optional[int], Optional[int], Optional[int], Dict[str, int | str]],
+        Awaitable[None],
+    ] | None = None,
     on_first_token: Callable[[], None] | None = None,
     on_token: Callable[[], None] | None = None,
     on_token_progress: Callable[[int], None] | None = None,
@@ -122,7 +155,9 @@ async def forward_streaming_request(
         client: httpx AsyncClient to use
         url: vLLM endpoint URL
         payload: Request payload (program_id will be removed)
-        on_usage: Called with (total_tokens, prompt_tokens, completion_tokens, cached_tokens) when stream ends
+        on_usage: Called with
+            (total_tokens, prompt_tokens, completion_tokens, cached_tokens, cached_tokens_details)
+            when stream ends
         on_first_token: Called when first token is received
         on_token: Called for each token received
         on_token_progress: Called with cumulative token count at regular intervals
@@ -133,6 +168,7 @@ async def forward_streaming_request(
     """
     # Remove program_id before forwarding
     payload = remove_program_id(payload)
+    payload = maybe_enable_cached_token_details(payload)
     
     # Add stream_options to get usage info in streaming response
     if on_usage is not None:
@@ -155,6 +191,7 @@ async def forward_streaming_request(
         prompt_tokens: Optional[int] = None
         completion_tokens: Optional[int] = None
         cached_tokens: Optional[int] = None
+        cached_tokens_details: Dict[str, int | str] = {}
         first_token_seen = False
         token_count = 0  # Track cumulative generated tokens
         last_reported_count = 0  # Last count reported via on_token_progress
@@ -194,12 +231,13 @@ async def forward_streaming_request(
                             payload_obj = json.loads(data)
                         except Exception:
                             continue
-                        tt, pt, comp_t, ct = extract_usage_info(payload_obj)
+                        tt, pt, comp_t, ct, ctd = extract_usage_info(payload_obj)
                         if tt is not None:
                             total_tokens = tt
                             prompt_tokens = pt
                             completion_tokens = comp_t
                             cached_tokens = ct
+                            cached_tokens_details = ctd
                             usage_extracted = True
                 yield chunk
         finally:
@@ -207,7 +245,13 @@ async def forward_streaming_request(
             # We assume successful vLLM/SGLang responses include usage.total_tokens
             # when include_usage is requested; otherwise this step is not finalized.
             if total_tokens is not None and on_usage is not None:
-                await on_usage(total_tokens, prompt_tokens, completion_tokens, cached_tokens)
+                await on_usage(
+                    total_tokens,
+                    prompt_tokens,
+                    completion_tokens,
+                    cached_tokens,
+                    cached_tokens_details,
+                )
 
     return StreamingResponse(
         iterator(),
@@ -222,7 +266,10 @@ async def forward_non_streaming_request(
     url: str,
     payload: Dict[str, Any],
     *,
-    on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
+    on_usage: Callable[
+        [int, Optional[int], Optional[int], Optional[int], Dict[str, int | str]],
+        Awaitable[None],
+    ] | None = None,
 ) -> Response:
     """Forward a non-streaming request to vLLM and return a Response.
     
@@ -230,13 +277,16 @@ async def forward_non_streaming_request(
         client: httpx AsyncClient to use
         url: vLLM endpoint URL
         payload: Request payload (program_id will be removed)
-        on_usage: Called with (total_tokens, prompt_tokens, completion_tokens, cached_tokens) after response
+        on_usage: Called with
+            (total_tokens, prompt_tokens, completion_tokens, cached_tokens, cached_tokens_details)
+            after response
     
     Returns:
         FastAPI Response with vLLM response content
     """
     # Remove program_id before forwarding
     payload = remove_program_id(payload)
+    payload = maybe_enable_cached_token_details(payload)
     
     resp = await client.post(url, json=payload)
     
@@ -245,21 +295,29 @@ async def forward_non_streaming_request(
     prompt_tokens: Optional[int] = None
     completion_tokens: Optional[int] = None
     cached_tokens: Optional[int] = None
+    cached_tokens_details: Dict[str, int | str] = {}
     try:
         payload_obj = resp.json()
     except Exception:
         payload_obj = None
-    tt, pt, comp_t, ct = extract_usage_info(payload_obj)
+    tt, pt, comp_t, ct, ctd = extract_usage_info(payload_obj)
     if tt is not None:
         total_tokens = tt
         prompt_tokens = pt
         completion_tokens = comp_t
         cached_tokens = ct
+        cached_tokens_details = ctd
     
     # Call usage callback
     # We assume successful vLLM/SGLang responses include usage.total_tokens.
     if total_tokens is not None and on_usage is not None:
-        await on_usage(total_tokens, prompt_tokens, completion_tokens, cached_tokens)
+        await on_usage(
+            total_tokens,
+            prompt_tokens,
+            completion_tokens,
+            cached_tokens,
+            cached_tokens_details,
+        )
     
     return Response(
         content=resp.content,

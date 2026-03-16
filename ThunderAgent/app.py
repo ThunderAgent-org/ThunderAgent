@@ -84,6 +84,7 @@ async def chat_completions(request: Request):
         prompt_tokens: int | None,
         completion_tokens: int | None,
         cached_tokens: int | None,
+        cached_tokens_details: Dict[str, int | str],
     ) -> None:
         router.update_program_after_request(
             program_id,
@@ -97,6 +98,7 @@ async def chat_completions(request: Request):
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 cached_tokens=cached_tokens,
+                cached_tokens_details=cached_tokens_details,
             )
 
     # Callback for streaming token progress updates (every 20 tokens)

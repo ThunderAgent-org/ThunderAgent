@@ -3,7 +3,7 @@ import csv
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 def get_profile_csv_dir() -> Path:
@@ -25,6 +25,10 @@ class StepMetrics:
     completion_tokens: Optional[int] = None
     cached_tokens: Optional[int] = None
     kv_hit_rate: Optional[float] = None  # KV cache hit rate (0.0-1.0), None if unavailable
+    cached_tokens_device: int = 0
+    cached_tokens_host: int = 0
+    cached_tokens_storage: int = 0
+    cached_storage_backend: str = ""
     completed_at: float = 0.0  # Unix timestamp when step completed
 
 
@@ -74,6 +78,10 @@ class ProfileState:
                     "completion_tokens",
                     "cached_tokens",
                     "kv_hit_rate",
+                    "cached_tokens_device",
+                    "cached_tokens_host",
+                    "cached_tokens_storage",
+                    "cached_storage_backend",
                     "completed_at",
                 ])
         self._csv_initialized = True
@@ -100,6 +108,10 @@ class ProfileState:
                 completion_tokens_val,
                 cached_tokens_val,
                 kv_hit_val,
+                metrics.cached_tokens_device,
+                metrics.cached_tokens_host,
+                metrics.cached_tokens_storage,
+                metrics.cached_storage_backend,
                 round(metrics.completed_at, 4),
             ])
     
@@ -159,14 +171,16 @@ class ProfileState:
         prompt_tokens: Optional[int] = None,
         completion_tokens: Optional[int] = None,
         cached_tokens: Optional[int] = None,
+        cached_tokens_details: Optional[Dict[str, int | str]] = None,
     ) -> None:
         """Called when request completes.
-        
+
         Args:
             prompt_tokens: Number of prompt tokens from usage.prompt_tokens
             completion_tokens: Number of completion tokens from usage.completion_tokens
             cached_tokens: Number of cached tokens from usage.prompt_tokens_details.cached_tokens
                           (None if not available or null)
+            cached_tokens_details: Source decomposition from sglext.cached_tokens_details
         """
         now = time.time()
         
@@ -183,7 +197,13 @@ class ProfileState:
         kv_hit_rate: Optional[float] = None
         if prompt_tokens is not None and cached_tokens is not None and prompt_tokens > 0:
             kv_hit_rate = cached_tokens / prompt_tokens
-        
+
+        source_details = cached_tokens_details or {}
+        cached_device = int(source_details.get("device", 0) or 0)
+        cached_host = int(source_details.get("host", 0) or 0)
+        cached_storage = int(source_details.get("storage", 0) or 0)
+        cached_storage_backend = str(source_details.get("storage_backend", "") or "")
+
         # Create step metrics
         step_id = len(self.step_metrics) + 1
         metrics = StepMetrics(
@@ -197,6 +217,10 @@ class ProfileState:
             completion_tokens=completion_tokens,
             cached_tokens=cached_tokens,
             kv_hit_rate=kv_hit_rate,
+            cached_tokens_device=cached_device,
+            cached_tokens_host=cached_host,
+            cached_tokens_storage=cached_storage,
+            cached_storage_backend=cached_storage_backend,
             completed_at=now,
         )
         self.step_metrics.append(metrics)
