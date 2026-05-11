@@ -101,9 +101,21 @@ class MultiBackendRouter:
         # Scheduling mode: True = "tr" (capacity scheduling), False = "default" (pure proxy)
         self.scheduling_enabled = scheduling_enabled
 
+        # Keep the keepalive expiry short and well below uvicorn's default
+        # `timeout-keep-alive` (5s) so we close idle connections before the
+        # backend does — otherwise httpx will hand out a pool connection that
+        # the backend has already closed and the first request on it fails
+        # with httpcore.ReadError. AsyncHTTPTransport(retries=1) covers the
+        # connect-side races; the request processor handles the read-side ones.
+        transport_limits = httpx.Limits(
+            max_connections=None,
+            max_keepalive_connections=None,
+            keepalive_expiry=3.0,
+        )
         self.client = httpx.AsyncClient(
             timeout=900.0,
-            limits=httpx.Limits(max_connections=None, max_keepalive_connections=None),
+            limits=transport_limits,
+            transport=httpx.AsyncHTTPTransport(limits=transport_limits, retries=1),
         )
         
         # Scheduler task for periodic capacity check
