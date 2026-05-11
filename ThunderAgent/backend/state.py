@@ -125,7 +125,18 @@ class BackendState:
     def total_program_tokens(self) -> int:
         """Sum of tokens from all programs on this backend."""
         return sum(p.total_tokens for p in self._programs.values())
-    
+
+    @property
+    def marked_for_pause_count(self) -> int:
+        """Number of active programs already marked for a future pause.
+
+        Used by the thrashing loop to also reclaim each marked program's
+        per-program buffer slot when projecting future capacity, so the
+        loop does not double-count programs it has already scheduled to
+        pause.
+        """
+        return sum(1 for p in self._programs.values() if p.marked_for_pause)
+
     def update_shared_tokens(self) -> None:
         """Update shared_tokens from latest vLLM metrics.
         
@@ -170,8 +181,13 @@ class BackendState:
         where buffer = active_count * BUFFER_PER_PROGRAM
         
         Args:
-            include_future_release: If True, subtract future_paused_tokens from the calculation.
-                                   Use this when checking if more programs need to be paused.
+            include_future_release: If True, subtract the planned release from
+                already-marked REASONING programs. Marked programs will free
+                both their current tokens (``future_paused_tokens``) and their
+                per-program buffer slot once they reach the next pause boundary.
+                Use this when checking if more programs still need to be
+                marked for pause; otherwise the loop double-counts the buffer
+                slots and never converges.
         """
         if not self.cache_config:
             return 0
@@ -179,18 +195,27 @@ class BackendState:
         required = self.active_program_tokens - self.shared_tokens + buffer
         if include_future_release:
             required -= self.future_paused_tokens
+            required -= self.marked_for_pause_count * BUFFER_PER_PROGRAM
         overflow = required - self.cache_config.total_tokens_capacity
         return max(0, overflow)
-    
-    def remaining_capacity(self) -> int:
+
+    def remaining_capacity(self, include_future_release: bool = False) -> int:
         """Return remaining capacity for new programs (can be negative if over capacity).
-        
+
         Uses cached shared_tokens (updated during thrashing check).
+
+        Args:
+            include_future_release: If True, include the planned release from
+                already-marked REASONING programs. This should only be used
+                when deciding whether more programs still need to be marked.
         """
         if not self.cache_config:
             return float('inf')
         buffer = self.active_program_count * BUFFER_PER_PROGRAM
         used = self.active_program_tokens - self.shared_tokens + buffer
+        if include_future_release:
+            used -= self.future_paused_tokens
+            used -= self.marked_for_pause_count * BUFFER_PER_PROGRAM
         return self.cache_config.total_tokens_capacity - used
 
     def remaining_capacity_with_decay(self) -> int:
@@ -267,6 +292,7 @@ class BackendState:
             "total_program_tokens": self.total_program_tokens,
             "paused_program_count": paused_program_count,
             "future_paused_tokens": self.future_paused_tokens,
+            "marked_for_pause_count": self.marked_for_pause_count,
             "shared_tokens": self.shared_tokens,
             "buffer_per_program": BUFFER_PER_PROGRAM,
             "capacity_overflow": self.capacity_overflow(),

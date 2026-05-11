@@ -688,8 +688,13 @@ class MultiBackendRouter:
         Priority: ACTING first (smallest tokens), then REASONING (smallest tokens).
         """
         paused_count = 0
-        
-        while backend.remaining_capacity() < 0:
+
+        # Count already-marked REASONING programs as future release (both their
+        # tokens and their per-program buffer slot) so the loop stops once the
+        # current pause plan is sufficient. Without include_future_release the
+        # buffer slot of each marked program is still counted as in-use, so
+        # the loop keeps marking until every REASONING program is queued.
+        while backend.remaining_capacity(include_future_release=True) < 0:
             # Priority 1: Pause ACTING programs (smallest first)
             acting_programs = self._get_acting_programs_sorted(backend.url, ascending=True)
             if acting_programs:
