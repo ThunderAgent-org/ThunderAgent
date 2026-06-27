@@ -1008,6 +1008,7 @@ class MultiBackendRouter:
         backend: BackendState,
         payload: Dict[str, Any],
         *,
+        headers: Optional[Dict[str, str]] = None,
         on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
         on_first_token: Callable[[], None] | None = None,
         on_token: Callable[[], None] | None = None,
@@ -1030,6 +1031,7 @@ class MultiBackendRouter:
                 self.client,
                 url,
                 payload,
+                headers=headers,
                 on_usage=on_usage,
                 on_first_token=on_first_token,
                 on_token=on_token,
@@ -1040,6 +1042,7 @@ class MultiBackendRouter:
                 self.client,
                 url,
                 payload,
+                headers=headers,
                 on_usage=on_usage,
             )
 

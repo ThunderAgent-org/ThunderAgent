@@ -103,6 +103,7 @@ async def forward_streaming_request(
     url: str,
     payload: Dict[str, Any],
     *,
+    headers: Optional[Dict[str, str]] = None,
     on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
     on_first_token: Callable[[], None] | None = None,
     on_token: Callable[[], None] | None = None,
@@ -142,7 +143,7 @@ async def forward_streaming_request(
         elif isinstance(stream_options, dict):
             stream_options.setdefault("include_usage", True)
 
-    resp_cm = client.stream("POST", url, json=payload)
+    resp_cm = client.stream("POST", url, json=payload, headers=headers)
     resp = await resp_cm.__aenter__()
     headers = filtered_headers(resp.headers)
     status = resp.status_code
@@ -222,6 +223,7 @@ async def forward_non_streaming_request(
     url: str,
     payload: Dict[str, Any],
     *,
+    headers: Optional[Dict[str, str]] = None,
     on_usage: Callable[[int, Optional[int], Optional[int], Optional[int]], Awaitable[None]] | None = None,
 ) -> Response:
     """Forward a non-streaming request to vLLM and return a Response.
@@ -238,7 +240,7 @@ async def forward_non_streaming_request(
     # Remove program_id before forwarding
     payload = remove_program_id(payload)
     
-    resp = await client.post(url, json=payload)
+    resp = await client.post(url, json=payload, headers=headers)
     
     # Extract usage info
     total_tokens: Optional[int] = None

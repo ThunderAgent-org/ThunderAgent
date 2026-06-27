@@ -11,6 +11,18 @@ from .scheduler import MultiBackendRouter
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+BACKEND_CONTEXT_HEADERS = {
+    "x-request-id",
+    "x-dynamo-session-id",
+    "x-dynamo-parent-session-id",
+    "x-dynamo-session-final",
+    "x-dynamo-kv-hints",
+}
+
+
+def backend_context_headers(headers: Mapping[str, str]) -> Dict[str, str]:
+    return {k: v for k, v in headers.items() if k.lower() in BACKEND_CONTEXT_HEADERS}
+
 
 def get_program_id(payload: Dict[str, Any], headers: Optional[Mapping[str, str]] = None) -> str:
     """Extract program_id from the request.
@@ -30,9 +42,18 @@ def get_program_id(payload: Dict[str, Any], headers: Optional[Mapping[str, str]]
     if isinstance(extra_body, dict) and "program_id" in extra_body:
         return str(extra_body["program_id"])
     if headers is not None:
-        session_id = headers.get("X-Session-ID") or headers.get("x-session-id")
+        session_id = (
+            headers.get("X-Dynamo-Session-ID")
+            or headers.get("x-dynamo-session-id")
+            or headers.get("X-Session-ID")
+            or headers.get("x-session-id")
+        )
         if session_id:
             return str(session_id)
+    nvext = payload.get("nvext")
+    agent_context = nvext.get("agent_context") if isinstance(nvext, dict) else None
+    if isinstance(agent_context, dict) and agent_context.get("session_id"):
+        return str(agent_context["session_id"])
     return "default"
 
 
@@ -110,6 +131,7 @@ def register_routes(app: FastAPI, ta_router: MultiBackendRouter, config: Optiona
         # Pass profile callbacks for token timing
         return await ta_router.proxy_request(
             backend, payload,
+            headers=backend_context_headers(request.headers),
             on_usage=on_usage,
             on_first_token=program_state.profile.on_first_token if program_state.profile else None,
             on_token=program_state.profile.on_token if program_state.profile else None,
