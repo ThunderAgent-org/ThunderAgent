@@ -1,0 +1,17 @@
+#!/bin/bash
+# Copy this file to api-keys.sh and fill in your credentials:
+#   cp api-keys.sh.example api-keys.sh
+#   chmod 600 api-keys.sh
+#
+# REQUIRED:
+export WANDB_API_KEY="<your_wandb_api_key>"
+
+# REQUIRED for model/dataset download:
+export HF_TOKEN="<your_huggingface_token>"
+
+# OPTIONAL: Docker Hub credentials for SWE-bench image pulls (rate limit: 200 pulls/6h free tier).
+# Multiple accounts allow parallel pulls. Leave empty if using Docker Hub Pro or pre-cached images.
+export DOCKER_HUB_USER_1=""
+export DOCKER_HUB_PAT_1=""
+# export DOCKER_HUB_USER_2=""
+# export DOCKER_HUB_PAT_2=""

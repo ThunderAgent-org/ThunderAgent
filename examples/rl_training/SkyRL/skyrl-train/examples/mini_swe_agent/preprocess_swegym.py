@@ -10,12 +10,13 @@ import datasets
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output_dir", default="~/data/swe_gym_subset")
+    parser.add_argument("--train_dataset", default="SumanthRH/SWE-Gym-Subset")
 
     args = parser.parse_args()
 
     args.output_dir = os.path.expanduser(args.output_dir)
 
-    data_source = "SumanthRH/SWE-Gym-Subset"
+    data_source = args.train_dataset
     eval_data_source = "SumanthRH/SWE-bench_Verified"
 
     train_dataset = datasets.load_dataset(data_source, "default")["train"]

@@ -400,6 +400,10 @@ def preprocess_packed_seqs(
             start_idx = cu_seqlens_padded_cpu[i] // cp_size
             # split to 2 chunks
             d = input_ids[i, attention_mask[i]]
+            # Pad d to seqlen_padded_i for CP splitting (d may be shorter
+            # than padded length when sequences are very short, e.g. dummies)
+            if d.shape[0] < seqlen_padded_i:
+                d = torch.nn.functional.pad(d, (0, seqlen_padded_i - d.shape[0]), value=0)
             input_ids_rmpad[start_idx : start_idx + half_seqlen] = d[
                 half_seqlen * cp_rank : half_seqlen * (cp_rank + 1)
             ]

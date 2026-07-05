@@ -88,7 +88,7 @@ class MegatronModelWrapper:
                 tp_group=tp_grp,
                 inference_only=True,
                 cp_group=None,  # we handle cp gathering in `postprocess_packed_seqs`
-                chunk_size=None,
+                chunk_size=4096,  # chunk to avoid OOM from full-length float32 logits
             )
             return torch.tensor(0.0, device=token_logprobs.device), {"log_probs": token_logprobs}
 
@@ -233,7 +233,7 @@ class MegatronModelWrapper:
                 tp_group=tp_grp,
                 inference_only=False,
                 cp_group=None,  # we handle cp gathering in `postprocess_packed_seqs`
-                chunk_size=None,
+                chunk_size=4096,  # chunk to avoid OOM from full-length float32 logits
             )
 
             action_log_probs = token_logprobs[:, -num_actions:]

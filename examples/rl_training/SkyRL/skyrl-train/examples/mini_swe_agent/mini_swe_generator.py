@@ -25,6 +25,8 @@ from skyrl_train.generators.utils import (
     get_rollout_metrics,
     get_response_ids_and_loss_mask_from_messages,
 )
+from skyrl_train.env_vars import SKYRL_GENERATION_TASK_TIMEOUT_S, SKYRL_GENERATION_BATCH_TIMEOUT_S
+from loguru import logger
 
 
 class DefaultAgentWithReminder(DefaultAgent):
@@ -82,7 +84,7 @@ class DefaultAgentWithReminder(DefaultAgent):
         return output
 
 
-@ray.remote(num_cpus=0.01)
+@ray.remote(num_cpus=0.01, enable_task_events=False)
 def init_and_run(
     instance: dict,
     litellm_model_name: str,
@@ -126,6 +128,14 @@ def init_and_run(
         error = str(e)
         extra_info = {"traceback": traceback.format_exc()}
     finally:
+        # Cleanup agent Docker container immediately to prevent accumulation.
+        # Without this, containers pile up (2 per trajectory) and crash the Docker daemon.
+        if env is not None:
+            try:
+                env.cleanup()
+            except Exception:
+                pass
+
         # Create trajectory directory with proper structure: step_{global_step}/{train/eval}
         path = Path(generator_cfg.miniswe_traj_dir) / f"step_{global_step}" / training_phase
         path.mkdir(parents=True, exist_ok=True)
@@ -209,17 +219,23 @@ class MiniSweAgentGenerator(SkyRLGymGenerator):
         self,
         prompt: ConversationType,
         messages: Optional[List[Dict[str, Any]]] = None,
+        stop_reason: str = "error",
     ) -> Tuple[List[int], float, str, List[int], List[int], None]:
         """Create a valid dummy output for failed trajectories.
 
         Returns data that passes all downstream trainer checks but contributes
         zero to training (reward=0, loss_mask all zeros, single EOS token).
+
+        Args:
+            stop_reason: Why this dummy was created. One of "timeout" (per-task
+                ObjectRef timeout), "batch_timeout" (batch-level safety net),
+                "error" (unexpected exception or empty messages).
         """
         eos_token_id = self.tokenizer.eos_token_id
         dummy_response_ids = [eos_token_id]
         dummy_loss_mask = [0]
         dummy_reward = 0.0
-        dummy_stop_reason = "error"
+        dummy_stop_reason = stop_reason
 
         # Construct prompt_ids from available messages
         try:
@@ -251,71 +267,100 @@ class MiniSweAgentGenerator(SkyRLGymGenerator):
         batch_metadata: BatchMetadata,
     ) -> Tuple[List[int], float, str, List[int], List[int], Optional[List[int]]]:
 
-        sweagent_config = yaml.safe_load(get_config_path(self.generator_cfg.miniswe_config_path).read_text())
-        # NOTE (sumanthrh): Input `prompt` is not used here because mini-swe-agent uses a similar entry from the `instance` obj
-        messages, reward, error, step_timings = await init_and_run.remote(
-            env_extras["instance"],
-            self.litellm_model_name,
-            sweagent_config,
-            self.generator_cfg,
-            env_extras["data_source"],
-            sampling_params,
-            trajectory_id,
-            batch_metadata.global_step,
-            batch_metadata.training_phase,
-        )
-        if not len(messages):
-            from loguru import logger
-            logger.warning(f"Empty messages for trajectory {trajectory_id}. Returning dummy output.")
-            return self._make_dummy_output(prompt)
+        obj_ref = None
+        try:
+            sweagent_config = yaml.safe_load(get_config_path(self.generator_cfg.miniswe_config_path).read_text())
+            # NOTE (sumanthrh): Input `prompt` is not used here because mini-swe-agent uses a similar entry from the `instance` obj
+            # Optionally pin init_and_run tasks to Docker-capable nodes (e.g., head node in 2-node setup)
+            remote_fn = init_and_run
+            if os.environ.get("DOCKER_NODE_RESOURCE"):
+                remote_fn = init_and_run.options(resources={"docker_node": 0.01}, enable_task_events=False)
 
-        # TODO (sumanthrh): This is currently hardcoded for SWEBench with 2 initial messages (system and user).
-        response_messages = messages[2:]
-
-        for message in messages[:2]:
-            assert message["role"] in (
-                "system",
-                "user",
-            ), "Expected the first two messages to be system and user messages"
-
-        initial_input_ids = self.tokenizer.apply_chat_template(messages[:2], add_generation_prompt=False, tokenize=True)
-        initial_prompt_length = len(initial_input_ids)
-
-        # We remove trailing `user` messages - this is added by Mini-SWE-Agent to capture the final git diff for the trajectory
-        last_idx = len(response_messages) - 1
-        while last_idx >= 0 and response_messages[last_idx]["role"] == "user":
-            last_idx -= 1
-        if last_idx < 0:
-            from loguru import logger
-            logger.warning(
-                "Found no assistant messages for this trajectory. Returning dummy output. "
-                "Please ensure that your environment is configured correctly and the `OPENAI_BASE_URL` points to the HTTP server from the inference engine client"
+            obj_ref = remote_fn.remote(
+                env_extras["instance"],
+                self.litellm_model_name,
+                sweagent_config,
+                self.generator_cfg,
+                env_extras["data_source"],
+                sampling_params,
+                trajectory_id,
+                batch_metadata.global_step,
+                batch_metadata.training_phase,
             )
-            return self._make_dummy_output(prompt, messages)
-        response_messages = response_messages[: last_idx + 1]
+            try:
+                messages, reward, error, step_timings = await asyncio.wait_for(
+                    obj_ref, timeout=SKYRL_GENERATION_TASK_TIMEOUT_S
+                )
+            except asyncio.TimeoutError:
+                ray.cancel(obj_ref, force=True)
+                logger.warning(
+                    f"Ray task timed out after {SKYRL_GENERATION_TASK_TIMEOUT_S}s for "
+                    f"{trajectory_id}. Using dummy output."
+                )
+                return self._make_dummy_output(prompt, stop_reason="timeout")
 
-        response_ids, loss_mask, _ = get_response_ids_and_loss_mask_from_messages(
-            response_messages,
-            self.tokenizer,
-            assistant_logprobs=None,
-        )
+            if not len(messages):
+                logger.warning(f"Empty messages for trajectory {trajectory_id}. Returning dummy output.")
+                return self._make_dummy_output(prompt)
 
-        # Extract prompt ids
-        prompt_ids = initial_input_ids
+            # TODO (sumanthrh): This is currently hardcoded for SWEBench with 2 initial messages (system and user).
+            response_messages = messages[2:]
 
-        # Calculate maximum response tokens allowed
-        max_response_tokens = max_tokens + max_input_length - initial_prompt_length
+            for message in messages[:2]:
+                assert message["role"] in (
+                    "system",
+                    "user",
+                ), "Expected the first two messages to be system and user messages"
 
-        # Determine stop reason
-        stop_reason = "complete"  # Default for trial completion
-        if len(response_ids) > max_response_tokens:
-            stop_reason = "length"
+            initial_input_ids = self.tokenizer.apply_chat_template(
+                messages[:2], add_generation_prompt=False, tokenize=True
+            )
+            initial_prompt_length = len(initial_input_ids)
 
-        # Truncate to maximum allowed length
-        response_ids = response_ids[:max_response_tokens]
-        loss_mask = loss_mask[:max_response_tokens]
+            # We remove trailing `user` messages - this is added by Mini-SWE-Agent to capture the final git diff for the trajectory
+            last_idx = len(response_messages) - 1
+            while last_idx >= 0 and response_messages[last_idx]["role"] == "user":
+                last_idx -= 1
+            if last_idx < 0:
+                logger.warning(
+                    "Found no assistant messages for this trajectory. Returning dummy output. "
+                    "Please ensure that your environment is configured correctly and the `OPENAI_BASE_URL` points to the HTTP server from the inference engine client"
+                )
+                return self._make_dummy_output(prompt, messages)
+            response_messages = response_messages[: last_idx + 1]
 
-        return (response_ids, reward, stop_reason, loss_mask, prompt_ids, None)
+            response_ids, loss_mask, _ = get_response_ids_and_loss_mask_from_messages(
+                response_messages,
+                self.tokenizer,
+                assistant_logprobs=None,
+            )
+
+            # Extract prompt ids
+            prompt_ids = initial_input_ids
+
+            # Calculate maximum response tokens allowed
+            max_response_tokens = max_tokens + max_input_length - initial_prompt_length
+
+            # Determine stop reason
+            stop_reason = "complete"  # Default for trial completion
+            if len(response_ids) > max_response_tokens:
+                stop_reason = "length"
+
+            # Truncate to maximum allowed length
+            response_ids = response_ids[:max_response_tokens]
+            loss_mask = loss_mask[:max_response_tokens]
+
+            return (response_ids, reward, stop_reason, loss_mask, prompt_ids, None)
+
+        except asyncio.CancelledError:
+            # Batch timeout cancelled us — also cancel the underlying Ray task
+            if obj_ref is not None:
+                ray.cancel(obj_ref, force=True)
+            raise  # must re-raise CancelledError per asyncio contract
+
+        except Exception as e:
+            logger.warning(f"Unexpected error in trajectory {trajectory_id}: {e}")
+            return self._make_dummy_output(prompt)
 
     async def _collect_vllm_metrics(self, step: int, metrics_log: list, interval: float = 2.0):
         """Background task to collect vLLM metrics every `interval` seconds during rollout."""
@@ -363,8 +408,6 @@ class MiniSweAgentGenerator(SkyRLGymGenerator):
             self._collect_vllm_metrics(batch_metadata.global_step, vllm_metrics_log)
         )
 
-        from loguru import logger
-
         # Rate-limit Docker container launches: start trajectories in batches
         # to avoid overwhelming the Docker daemon with simultaneous container creation.
         ROLLOUT_BATCH_SIZE = 64
@@ -374,41 +417,86 @@ class MiniSweAgentGenerator(SkyRLGymGenerator):
         total = len(prompts)
         total_batches = (total + ROLLOUT_BATCH_SIZE - 1) // ROLLOUT_BATCH_SIZE
 
-        for batch_start in range(0, total, ROLLOUT_BATCH_SIZE):
-            batch_end = min(batch_start + ROLLOUT_BATCH_SIZE, total)
-            batch_num = batch_start // ROLLOUT_BATCH_SIZE + 1
-
-            if batch_start > 0:
-                logger.info(
-                    f"Rollout batch {batch_num}/{total_batches}: waiting {ROLLOUT_BATCH_DELAY}s before launching next batch..."
-                )
-                await asyncio.sleep(ROLLOUT_BATCH_DELAY)
-
-            logger.info(
-                f"Rollout batch {batch_num}/{total_batches}: launching {batch_end - batch_start} trajectories [{batch_start}:{batch_end}]"
-            )
-            for i in range(batch_start, batch_end):
-                task = asyncio.create_task(
-                    self.minisweagent_agent_loop(
-                        prompts[i],
-                        env_extras[i],
-                        max_tokens=max_tokens,
-                        max_input_length=max_input_length,
-                        sampling_params=sampling_params,
-                        trajectory_id=trajectory_ids[i],
-                        batch_metadata=batch_metadata,
-                    )
-                )
-                all_tasks.append(task)
-
-        all_outputs = await asyncio.gather(*all_tasks)
-
-        # Stop background metrics collection
-        metrics_task.cancel()
         try:
-            await metrics_task
-        except asyncio.CancelledError:
-            pass
+            for batch_start in range(0, total, ROLLOUT_BATCH_SIZE):
+                batch_end = min(batch_start + ROLLOUT_BATCH_SIZE, total)
+                batch_num = batch_start // ROLLOUT_BATCH_SIZE + 1
+
+                if batch_start > 0:
+                    logger.info(
+                        f"Rollout batch {batch_num}/{total_batches}: waiting {ROLLOUT_BATCH_DELAY}s before launching next batch..."
+                    )
+                    await asyncio.sleep(ROLLOUT_BATCH_DELAY)
+
+                logger.info(
+                    f"Rollout batch {batch_num}/{total_batches}: launching {batch_end - batch_start} trajectories [{batch_start}:{batch_end}]"
+                )
+                for i in range(batch_start, batch_end):
+                    task = asyncio.create_task(
+                        self.minisweagent_agent_loop(
+                            prompts[i],
+                            env_extras[i],
+                            max_tokens=max_tokens,
+                            max_input_length=max_input_length,
+                            sampling_params=sampling_params,
+                            trajectory_id=trajectory_ids[i],
+                            batch_metadata=batch_metadata,
+                        )
+                    )
+                    all_tasks.append(task)
+
+            done, pending = await asyncio.wait(all_tasks, timeout=SKYRL_GENERATION_BATCH_TIMEOUT_S)
+
+            if pending:
+                logger.warning(
+                    f"generate() batch timeout: {len(done)} completed, {len(pending)} timed out. "
+                    f"Cancelling pending tasks."
+                )
+                for task in pending:
+                    task.cancel()
+                # Wait for cancellation to propagate (triggers CancelledError handler in minisweagent_agent_loop)
+                await asyncio.gather(*pending, return_exceptions=True)
+
+            # Reconstruct ordered outputs: real result for done, dummy for timed-out/failed
+            all_outputs = []
+            for i, task in enumerate(all_tasks):
+                if task.done() and not task.cancelled():
+                    try:
+                        all_outputs.append(task.result())
+                    except Exception as e:
+                        logger.warning(f"Task {i} raised exception: {e}. Using dummy output.")
+                        all_outputs.append(self._make_dummy_output(prompts[i], stop_reason="error"))
+                else:
+                    all_outputs.append(self._make_dummy_output(prompts[i], stop_reason="batch_timeout"))
+
+            # Compute accurate counts from stop_reason (captures per-task timeouts that completed normally)
+            stop_reasons = [output[2] for output in all_outputs]
+            num_timeouts = stop_reasons.count("timeout")
+            num_batch_timeouts = stop_reasons.count("batch_timeout")
+            num_errors = stop_reasons.count("error")
+            num_real = len(all_outputs) - num_timeouts - num_batch_timeouts - num_errors
+            logger.info(
+                f"generate() complete: {num_real} real, {num_timeouts} task_timeouts, "
+                f"{num_batch_timeouts} batch_timeouts, {num_errors} errors "
+                f"out of {len(all_outputs)} total "
+                f"(dummy_rate={100 * (num_timeouts + num_batch_timeouts + num_errors) / max(len(all_outputs), 1):.1f}%)"
+            )
+
+        finally:
+            # Guarantee cleanup on any exit (normal, exception, or external cancellation)
+            # Cancel all in-flight rollout tasks so CancelledError handlers run and call ray.cancel()
+            for task in all_tasks:
+                if not task.done():
+                    task.cancel()
+            if all_tasks:
+                await asyncio.gather(*all_tasks, return_exceptions=True)
+
+            # Stop background metrics collection
+            metrics_task.cancel()
+            try:
+                await metrics_task
+            except asyncio.CancelledError:
+                pass
 
         # Save vLLM metrics to file
         if vllm_metrics_log:

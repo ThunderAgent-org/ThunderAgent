@@ -6,10 +6,28 @@ from transformers import AutoTokenizer, AutoConfig
 from huggingface_hub import snapshot_download
 
 import os
+import sys
+import time
+import importlib.metadata as _importlib_metadata
 from datetime import timedelta
 from typing import List, Dict, Any, Optional, Union
 from collections import defaultdict
 from omegaconf import OmegaConf
+
+# Workaround: Wait for UV venv to stabilize before importing transformer-engine.
+# When Ray spawns multiple actors sharing the same UV venv, concurrent `uv sync`
+# can temporarily remove transformer-engine-cu12 during its "Uninstall 1 / Install 1"
+# cycle. TE's sanity_checks_for_pypi_installation() uses importlib.metadata to check
+# for this package, and raises RuntimeError if it's missing. Polling until the package
+# metadata is available ensures we import TE after the sync completes.
+for _te_wait_attempt in range(10):
+    try:
+        _importlib_metadata.distribution("transformer-engine-cu12")
+        break
+    except _importlib_metadata.PackageNotFoundError:
+        if _te_wait_attempt < 9:
+            time.sleep(3)
+        # On last attempt, proceed anyway and let TE's own error propagate
 
 from megatron.bridge import AutoBridge
 from megatron.bridge.peft.lora import LoRA
@@ -197,6 +215,15 @@ class MegatronWorker:
         """
         Initialize the Megatron-Bridge bridge and provider objects + hf_config and tokenizer
         """
+        # Resolve repo ID (e.g. "Qwen/Qwen3-32B") to local snapshot path if cached.
+        # This avoids HFValidationError where transformers' cache resolution passes
+        # local cache paths to huggingface_hub's validate_repo_id().
+        if not os.path.isdir(model_path):
+            try:
+                model_path = snapshot_download(model_path, local_files_only=True)
+            except Exception:
+                pass
+
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         hf_config = AutoConfig.from_pretrained(model_path, trust_remote_code=True)
 
