@@ -15,6 +15,8 @@ Fast, simple and program-aware agentic inference system.
 
 ---
 
+The experimental native Dynamo policy lives in [`rust/`](rust/README.md). It implements session-aware admission and worker selection as an external Rust crate.
+
 ## News
 
 - **[2026-06-01]** As part of [Dynamo 2.0](https://github.com/ai-dynamo/dynamo/issues/9208), ThunderAgent is integrated into **NVIDIA Dynamo** ([PR #9448](https://github.com/ai-dynamo/dynamo/pull/9448)) — with the proposed **program abstraction** operating as a first-class scheduling unit ([PR #8789](https://github.com/ai-dynamo/dynamo/pull/8789)).

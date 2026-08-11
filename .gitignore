@@ -3,3 +3,4 @@ openhands_swebench/OpenHands/outputs/
 openhands_swebench/system_monitor.csv
 *.pyc
 .venv
+rust/target/

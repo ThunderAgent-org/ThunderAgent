@@ -1,0 +1,15 @@
+worker_selection:
+  default: thunderagent
+  instances:
+    - name: thunderagent
+      type: thunderagent
+      parameters:
+        pause_threshold: 0.95
+        pause_target: 0.80
+        resume_hysteresis: 0.10
+        resume_timeout_seconds: 1800.0
+        session_retention_seconds: 1800.0
+        scheduler_interval_seconds: 5.0
+        acting_token_weight: 1.0
+        acting_decay_tau_seconds: 1.0
+        buffer_per_program: 100
