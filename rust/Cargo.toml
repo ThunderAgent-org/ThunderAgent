@@ -8,7 +8,6 @@ repository = "https://github.com/ThunderAgents-ai/ThunderAgent"
 
 [dependencies]
 dynamo-kv-router = { git = "https://github.com/ai-dynamo/dynamo.git", branch = "idhanani/dyn-3231-session-aware-policy-crate", features = ["standalone-selection"] }
-indexmap = "2"
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"

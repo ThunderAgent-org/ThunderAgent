@@ -2,19 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use crate::ThunderAgentConfig;
+use crate::selection::SessionAssignments;
 use dynamo_kv_router::protocols::WorkerWithDpRank;
 use dynamo_kv_router::{
     PolicyQueueDecision, PolicyQueueEvent, PolicyQueueId, PolicyQueuePolicy, PolicyQueueRequest,
     PolicyQueueWorker,
 };
-use indexmap::{IndexMap, IndexSet};
-
-use crate::ThunderAgentConfig;
-use crate::selection::SessionAssignments;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProgramStatus {
@@ -66,7 +64,7 @@ struct RequestState {
 #[derive(Default)]
 struct SessionRequests {
     current: Option<PolicyQueueId>,
-    waiting: IndexSet<PolicyQueueId>,
+    waiting: VecDeque<PolicyQueueId>,
 }
 
 #[derive(Clone, Copy)]
@@ -96,8 +94,8 @@ impl WorkerUsage {
 /// Session-aware admission state owned by one Dynamo policy queue.
 pub(crate) struct ThunderAgentPolicy {
     config: ThunderAgentConfig,
-    programs: IndexMap<String, Program>,
-    paused: IndexSet<String>,
+    programs: HashMap<String, Program>,
+    paused: HashSet<String>,
     requests: HashMap<PolicyQueueId, RequestState>,
     request_ids: HashMap<String, PolicyQueueId>,
     sessions: HashMap<String, SessionRequests>,
@@ -111,8 +109,8 @@ impl ThunderAgentPolicy {
         let next_tick = Instant::now() + Duration::from_secs_f64(config.scheduler_interval_seconds);
         Self {
             config,
-            programs: IndexMap::new(),
-            paused: IndexSet::new(),
+            programs: HashMap::new(),
+            paused: HashSet::new(),
             requests: HashMap::new(),
             request_ids: HashMap::new(),
             sessions: HashMap::new(),
@@ -159,7 +157,7 @@ impl ThunderAgentPolicy {
                 .get_mut(session_id)
                 .expect("busy session exists")
                 .waiting
-                .insert(id);
+                .push_back(id);
             return PolicyQueueDecision::Defer;
         }
 
@@ -302,8 +300,10 @@ impl ThunderAgentPolicy {
             .and_then(|requests| requests.current)
             == Some(id);
         if !is_current {
-            if let Some(requests) = self.sessions.get_mut(&request.session_id) {
-                requests.waiting.shift_remove(&id);
+            if let Some(requests) = self.sessions.get_mut(&request.session_id)
+                && let Some(index) = requests.waiting.iter().position(|waiting| *waiting == id)
+            {
+                requests.waiting.remove(index);
             }
             return Vec::new();
         }
@@ -324,12 +324,12 @@ impl ThunderAgentPolicy {
                     if paused {
                         self.paused.insert(request.session_id.clone());
                     } else {
-                        self.paused.shift_remove(&request.session_id);
+                        self.paused.remove(&request.session_id);
                     }
                 }
                 None => {
-                    self.programs.shift_remove(&request.session_id);
-                    self.paused.shift_remove(&request.session_id);
+                    self.programs.remove(&request.session_id);
+                    self.paused.remove(&request.session_id);
                     self.assignments.set(&request.session_id, None);
                 }
             }
@@ -349,7 +349,7 @@ impl ThunderAgentPolicy {
         let next = self
             .sessions
             .get_mut(session_id)
-            .and_then(|requests| requests.waiting.shift_remove_index(0));
+            .and_then(|requests| requests.waiting.pop_front());
         let Some(id) = next else {
             self.sessions.remove(session_id);
             return Vec::new();
@@ -435,8 +435,8 @@ impl ThunderAgentPolicy {
             .map(|(session_id, _)| session_id.clone())
             .collect();
         for session_id in expired {
-            self.programs.shift_remove(&session_id);
-            self.paused.shift_remove(&session_id);
+            self.programs.remove(&session_id);
+            self.paused.remove(&session_id);
             self.assignments.set(&session_id, None);
         }
     }
@@ -667,7 +667,7 @@ impl ThunderAgentPolicy {
         program.lifecycle = ProgramLifecycle::Active;
         let was_deferred = program.deferred_since.take().is_some();
         self.set_assignment(session_id, worker);
-        self.paused.shift_remove(session_id);
+        self.paused.remove(session_id);
         match (was_deferred, deferred_id) {
             (true, Some(id)) => vec![id],
             _ => Vec::new(),

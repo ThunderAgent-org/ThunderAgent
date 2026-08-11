@@ -1468,7 +1468,6 @@ name = "thunderagent-dynamo-policy"
 version = "0.1.0"
 dependencies = [
  "dynamo-kv-router",
- "indexmap",
  "parking_lot",
  "serde",
  "thiserror",
