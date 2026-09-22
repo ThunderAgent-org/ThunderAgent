@@ -56,3 +56,17 @@ def test_cli_options_reach_router():
 def test_public_api_still_importable():
     code = "from ThunderAgent import register_routes, get_program_id; print('ok')"
     assert _last_line(code) == "ok"
+
+
+GUARD = r'''
+import sys, uvicorn
+uvicorn.run = lambda *a, **k: print("SERVED")
+import ThunderAgent.app  # builds the router before any CLI options exist
+sys.argv = ["thunderagent", "--router", "default"]
+from ThunderAgent.__main__ import main
+print("EXIT", main())
+'''
+
+
+def test_main_refuses_router_built_before_cli_options():
+    assert _last_line(GUARD) == "EXIT 1"
