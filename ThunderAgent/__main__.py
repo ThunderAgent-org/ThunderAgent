@@ -72,7 +72,15 @@ def main() -> int:
         return 1
 
     # Import app after config is set
-    from .app import app
+    from .app import _router_config, app
+
+    if _router_config is not config:
+        print(
+            "Error: ThunderAgent.app was imported before the command-line options "
+            "were applied, so its router would ignore them.",
+            file=sys.stderr,
+        )
+        return 1
 
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)
     return 0

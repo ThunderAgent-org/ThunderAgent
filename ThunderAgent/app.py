@@ -247,6 +247,9 @@ def _create_router() -> MultiBackendRouter:
     )
 
 
+# The config the module-level router was built from. __main__ checks it
+# against the config it applied, so a router built too early fails loudly.
+_router_config = get_config()
 router = _create_router()
 app = FastAPI(title="ThunderAgent - Program State Tracking Proxy")
 
