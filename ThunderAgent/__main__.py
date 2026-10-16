@@ -31,6 +31,9 @@ def main() -> int:
                         help="Weight for acting tokens in capacity calculation (default: 1.0)")
     parser.add_argument("--use-acting-token-decay", action="store_true",
                         help="Use 2^(-t) decay for acting tokens in resume capacity calculation")
+    parser.add_argument("--pause-idle-after", type=float, default=60.0,
+                        help="Seconds a program can stay ACTING before it is paused to make room "
+                             "for a waiting request that fits nowhere (default: 60.0; 0 disables)")
     args = parser.parse_args()
 
     # Set config BEFORE importing app
@@ -48,6 +51,7 @@ def main() -> int:
         scheduler_interval=args.scheduler_interval,
         acting_token_weight=args.acting_token_weight,
         use_acting_token_decay=args.use_acting_token_decay,
+        pause_idle_after=args.pause_idle_after,
     )
     set_config(config)
     
@@ -63,6 +67,8 @@ def main() -> int:
         print(f"⚖️  Acting token weight: {args.acting_token_weight}")
         if args.use_acting_token_decay:
             print(f"📉 Acting token decay: enabled (2^-t)")
+        if args.pause_idle_after > 0:
+            print(f"⏸️  Idle programs yield to waiting requests after {args.pause_idle_after}s")
 
     # Import uvicorn here to avoid import errors if not installed
     try:

@@ -66,7 +66,9 @@ The scheduler runs a background loop every `--scheduler-interval` seconds (defau
 _scheduled_check():
   1. Fetch fresh metrics from all backends
   2. Resume waiting programs (_greedy_resume)
-  3. Check each backend for capacity overflow (_pause_until_safe)
+  3. If a waiting request still fits nowhere, pause long-idle programs for it
+     (_pause_idle_for_waiting), then resume again
+  4. Check each backend for capacity overflow (_pause_until_safe)
 ```
 
 ### Pause Logic (`_pause_until_safe`)
@@ -92,6 +94,12 @@ Paused programs are resumed using **Best Fit Decreasing (BFD)** bin-packing:
 5. Re-sort backends after each placement
 
 This maximizes the number of programs that can run concurrently while respecting capacity constraints.
+
+### Idle Programs Yield (`_pause_idle_for_waiting`)
+
+`_greedy_resume` places a waiting program only where it fits, and `_pause_until_safe` pauses only when a backend is over capacity. ACTING programs keep their tokens counted until their next request or their release, so they can hold a backend just under capacity while programs with a pending request wait. A program that finished without `POST /programs/release` stays ACTING for good, and then no request runs on that backend until the 30-minute wait timeout.
+
+A pending request outranks an idle program. So when the first waiting program in resume order (step > 1 before new programs, smallest first) fits on no backend, the scheduler pauses programs that have been ACTING for at least `--pause-idle-after` seconds (default 60), longest idle first, on the backend that makes room with the fewest pauses. It pauses nothing if no backend can make enough room that way.
 
 ### Acting Token Decay
 

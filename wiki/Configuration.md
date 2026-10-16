@@ -19,6 +19,7 @@ ThunderAgent is configured via command-line arguments passed to the `thunderagen
 | `--scheduler-interval` | `5.0` | Interval in seconds between scheduler checks |
 | `--acting-token-weight` | `1.0` | Weight for acting tokens in capacity calculation |
 | `--use-acting-token-decay` | disabled | Use `2^(-t)` decay for acting tokens in resume capacity |
+| `--pause-idle-after` | `60.0` | Seconds a program can stay ACTING before it is paused to make room for a waiting request that fits nowhere (`0` disables) |
 
 ## Router Modes
 
@@ -47,6 +48,10 @@ The `--acting-token-weight` controls how acting (tool-executing) programs are we
 
 When `--use-acting-token-decay` is enabled, the resume logic uses exponential decay (`2^(-t)`) on acting token weights, where `t` is the number of seconds a program has been in ACTING state. This provides an optimistic estimate of available capacity for resuming paused programs.
 
+## Pausing Idle Programs for Waiting Requests
+
+A program stays ACTING, its tokens counted, from the end of one request until its next request or `POST /programs/release`. When a waiting program with a pending request fits on no backend, programs that have been ACTING for at least `--pause-idle-after` seconds are paused, longest idle first, until it fits. A paused program resumes as usual when its next request arrives. This keeps programs that finished without being released, or that run long tools, from holding capacity while requests wait. Set `--pause-idle-after 0` to turn it off.
+
 ## Config Dataclass
 
 Internally, configuration is stored in a `Config` dataclass:
@@ -64,6 +69,7 @@ class Config:
     scheduler_interval: float        # Scheduler check interval (seconds)
     acting_token_weight: float       # Weight for acting tokens
     use_acting_token_decay: bool     # Exponential decay on acting tokens
+    pause_idle_after: float          # Seconds ACTING before yielding to a waiting request
 ```
 
 The config is set once at startup (in `__main__.py`) and accessed globally via `get_config()`.

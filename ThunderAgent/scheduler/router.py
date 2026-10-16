@@ -66,6 +66,7 @@ class MultiBackendRouter:
         backend_type: str = "vllm",
         acting_token_weight: float = 1.0,
         use_acting_token_decay: bool = False,
+        pause_idle_after: float = 60.0,
     ) -> None:
         # Support single URL string or list of URLs
         if isinstance(backend_urls, str):
@@ -73,6 +74,10 @@ class MultiBackendRouter:
         
         # Weight for acting tokens in capacity calculation
         self.acting_token_weight = acting_token_weight
+
+        # Seconds a program can stay ACTING before it is paused to make room
+        # for a waiting request that fits nowhere (0 disables)
+        self.pause_idle_after = pause_idle_after
         
         # All backends (pass acting_token_weight as tool_coefficient)
         self.backends: Dict[str, BackendState] = {}
@@ -757,15 +762,20 @@ class MultiBackendRouter:
                 logger.error(f"Scheduler error: {e}", exc_info=True)
 
     async def _scheduled_check(self):
-        """Periodic check: resume waiting programs, enforce capacity, update metrics."""
+        """Periodic check: resume waiting programs, let long-idle programs yield, enforce capacity."""
         # Step 1: Fetch fresh metrics
         for backend in self.backends.values():
             await backend.fetch_metrics()
         
         # Step 2: Resume waiting programs (uses decay-adjusted capacity if enabled)
         await self._greedy_resume()
+
+        # Step 3: If a waiting request still fits nowhere, pause long-idle
+        # programs to make room for it, then resume again
+        if self._pause_idle_for_waiting():
+            await self._greedy_resume()
         
-        # Step 3: Check thrashing and pause if needed (uses original capacity, no decay)
+        # Step 4: Check thrashing and pause if needed (uses original capacity, no decay)
         for url, backend in self.backends.items():
             if backend.cache_config and backend.remaining_capacity() < 0:
                 await self._pause_until_safe(backend)
@@ -803,6 +813,88 @@ class MultiBackendRouter:
         
         if paused_count > 0:
             logger.info(f"Scheduler paused/marked {paused_count} programs on {backend.url}")
+
+    def _pause_idle_for_waiting(self) -> bool:
+        """Pause long-idle programs so that a waiting request can be placed.
+
+        A program stays ACTING, its tokens counted, from the end of one
+        request until its next request or its release. _greedy_resume places
+        a waiting program only where it fits, and _pause_until_safe pauses
+        only when a backend is over capacity. So ACTING programs can hold a
+        backend just under capacity while programs with a pending request
+        wait, until _wait_for_resume times out. A program that finished
+        without POST /programs/release stays ACTING for good, and then no
+        request runs on that backend at all.
+
+        A pending request outranks an idle program, as in _greedy_resume.
+        When the first waiting program in _greedy_resume's order fits on no
+        backend, pause programs that have been ACTING for at least
+        pause_idle_after seconds, longest idle first, on the backend that
+        makes room with the fewest pauses.
+
+        Returns True if any program was paused.
+        """
+        if self.pause_idle_after <= 0:
+            return False
+
+        from ..backend.state import BUFFER_PER_PROGRAM
+
+        # Waiting programs with a pending request: running programs first,
+        # then new ones, smallest first within each group (stable sort).
+        waiting = [
+            state for _, state, _ in self._get_paused_programs_sorted(ascending=True)
+            if state.status == ProgramStatus.REASONING
+        ]
+        if not waiting:
+            return False
+        waiting.sort(key=lambda state: state.step_count == 1)
+        target = waiting[0]
+        required = target.total_tokens + BUFFER_PER_PROGRAM
+
+        now = time.time()
+        best: Optional[Tuple[BackendState, List[Tuple[str, Program]]]] = None
+        for backend in self.backends.values():
+            if not backend.cache_config or not backend.healthy:
+                continue
+            remaining = backend.remaining_capacity()
+            if remaining >= required:
+                return False  # It fits; _greedy_resume places it
+            idle = sorted(
+                (
+                    (pid, state) for pid, state in self.programs.items()
+                    if state.backend_url == backend.url
+                    and state.state == ProgramState.ACTIVE
+                    and state.status == ProgramStatus.ACTING
+                    and state.acting_since is not None
+                    and now - state.acting_since >= self.pause_idle_after
+                ),
+                key=lambda item: item[1].acting_since,
+            )
+            freed = remaining
+            to_pause: List[Tuple[str, Program]] = []
+            for pid, state in idle:
+                if freed >= required:
+                    break
+                freed += int(backend.tool_coefficient * state.total_tokens) + BUFFER_PER_PROGRAM
+                to_pause.append((pid, state))
+            if freed >= required and (best is None or len(to_pause) < len(best[1])):
+                best = (backend, to_pause)
+
+        if best is None:
+            return False
+        backend, to_pause = best
+        paused_count = 0
+        for pid, state in to_pause:
+            if backend.remaining_capacity() >= required:
+                break
+            idle_s = now - state.acting_since
+            self._pause_program(pid, state)
+            paused_count += 1
+            logger.info(
+                f"Scheduler paused idle program {pid} (acting {idle_s:.0f}s, tokens={state.total_tokens}) "
+                f"to make room for waiting program {target.program_id} (tokens={target.total_tokens})"
+            )
+        return paused_count > 0
 
     async def _greedy_resume(self):
         """Resume waiting programs using Best Fit Decreasing (BFD) bin-packing.

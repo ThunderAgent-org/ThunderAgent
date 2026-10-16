@@ -89,6 +89,16 @@ openai.client.chat.completions.create(
 )
 ```
 
+When a task ends, release its program. Until then ThunderAgent counts the program's tokens against the backend's capacity, as if the agent were still running a tool:
+
+```python
+import httpx
+
+httpx.post("http://localhost:9000/programs/release", json={"program_id": "unique_id"})
+```
+
+A program that is never released is paused after `--pause-idle-after` seconds (default 60) once a waiting request needs its room, so it cannot block other programs for good. Releasing it frees the room at once.
+
 If your agentic workflow uses Docker containers, you can also pass Docker container IDs:
 
 ```python

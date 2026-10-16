@@ -84,7 +84,7 @@ Fields:
 
 ### `POST /programs/release`
 
-Releases a program and frees its tracked resources.
+Releases a program and frees its tracked resources. Call it when the program's task ends: until then its tokens count against the backend's capacity.
 
 **Request Body**:
 
