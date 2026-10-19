@@ -53,10 +53,6 @@ class BackendState:
         # = reasoning_program_tokens - vllm_actual_used_tokens
         self.shared_tokens: int = 0
         
-        # Future paused tokens: sum of tokens from REASONING programs marked for pause
-        # These will be released when they transition to ACTING
-        self.future_paused_tokens: int = 0
-        
         # Flag to skip concurrent scheduling (non-blocking, allows temporary overflow)
         self.scheduling_in_progress: bool = False
 
@@ -110,6 +106,13 @@ class BackendState:
     def active_program_count(self) -> int:
         """Number of active (REASONING + ACTING) programs."""
         return len(self._programs)
+
+    @property
+    def future_paused_tokens(self) -> int:
+        """Current tokens in registered programs awaiting a deferred pause."""
+        # Marked programs can keep decoding until they transition to ACTING.
+        return sum(p.total_tokens for p in self._programs.values()
+                   if p.marked_for_pause)
     
     @property
     def reasoning_program_count(self) -> int:
