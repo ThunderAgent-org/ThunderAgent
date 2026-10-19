@@ -533,9 +533,6 @@ class MultiBackendRouter:
         
         # Clear mark if was marked
         if backend and state.marked_for_pause:
-            backend.future_paused_tokens -= state.total_tokens
-            if backend.future_paused_tokens < 0:
-                backend.future_paused_tokens = 0
             state.marked_for_pause = False
         
         state.state = ProgramState.TERMINATED
@@ -667,7 +664,6 @@ class MultiBackendRouter:
             return
         
         state.marked_for_pause = True
-        backend.future_paused_tokens += state.total_tokens
         
         logger.info(f"Marked program {program_id} for pause (tokens={state.total_tokens}, future_paused={backend.future_paused_tokens})")
 
@@ -680,11 +676,8 @@ class MultiBackendRouter:
         if not backend:
             return
         
-        # Clear the mark and subtract from future_paused_tokens
+        # Clearing the mark removes this program from future_paused_tokens.
         state.marked_for_pause = False
-        backend.future_paused_tokens -= state.total_tokens
-        if backend.future_paused_tokens < 0:
-            backend.future_paused_tokens = 0
         
         # Now actually pause the program
         self._pause_program(program_id, state)
@@ -777,7 +770,8 @@ class MultiBackendRouter:
         """
         paused_count = 0
         
-        while backend.remaining_capacity() < 0:
+        # Pending pauses reduce further eviction needs, not admission occupancy.
+        while backend.capacity_overflow(include_future_release=True) > 0:
             # Priority 1: Pause ACTING programs (smallest first)
             acting_programs = self._get_acting_programs_sorted(backend.url, ascending=True)
             if acting_programs:
